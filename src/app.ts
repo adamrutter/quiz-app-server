@@ -1,3 +1,4 @@
+import { setupRedis } from "./redis"
 import { setupSocketIO } from "./socket"
 import express from "express"
 import http from "http"
@@ -18,8 +19,11 @@ app.use((req, res, next) => {
   next()
 })
 
-// Setup socket.io
-setupSocketIO(server)
+// Setup
+const redis = setupRedis()
+app.set("redis", redis)
+
+setupSocketIO(server, app)
 
 // Start server
 server.listen(port, () => {
