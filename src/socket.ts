@@ -1,5 +1,5 @@
 import { Express } from "express"
-import { RedisClient } from "redis"
+import { Redis } from "ioredis"
 import { Server as HttpServer } from "http"
 import { Server as SocketIoServer, Socket } from "socket.io"
 import { v4 as uuidv4 } from "uuid"
@@ -12,7 +12,7 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
     }
   })
 
-  const redis: RedisClient = app.get("redis")
+  const redis: Redis = app.get("redis")
 
   io.on("connect", (socket: Socket) => {
     // Request the creation of a new party

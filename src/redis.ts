@@ -1,20 +1,20 @@
-import redis from "redis"
+import Redis, { Redis as RedisType } from "ioredis"
 
 require("dotenv").config() // eslint-disable-line @typescript-eslint/no-var-requires
 
-export const setupRedis = (): redis.RedisClient => {
-  const client = redis.createClient({
+export const setupRedis = (): RedisType => {
+  const redis = new Redis({
     host: process.env.REDIS_HOST,
     port: Number(process.env.REDIS_PORT) || 6379
   })
 
-  client.on("error", error => {
+  redis.on("error", error => {
     console.error(error)
   })
 
-  client.on("connect", () => {
+  redis.on("connect", () => {
     console.log("Connected to Redis")
   })
 
-  return client
+  return redis
 }
