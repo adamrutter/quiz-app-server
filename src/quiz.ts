@@ -72,6 +72,7 @@ export const questionTimer = (
     const timer = setInterval(() => {
       secondsLeft--
 
+      // Stop timer at 0
       if (secondsLeft === 0) {
         clearInterval(timer)
         resolve()
@@ -79,6 +80,11 @@ export const questionTimer = (
 
       socket.emit("timer-update", secondsLeft)
     }, 1000)
+
+    // Stop timer once an answer has been received from client
+    socket.on("answer", () => {
+      clearInterval(timer)
+    })
   })
 }
 
@@ -110,4 +116,20 @@ export const sendQuestion = (
       resolve()
     }
   })
+}
+
+/**
+ * Check answer. Returns true if correct, false if incorrect.
+ * @param clientAnswer The answer provided by the client.
+ * @param question The server-side question object.
+ */
+export const checkAnswer = (
+  clientAnswer: string,
+  question: Question
+): boolean => {
+  if (clientAnswer === question.correct_answer) {
+    return true
+  } else {
+    return false
+  }
 }

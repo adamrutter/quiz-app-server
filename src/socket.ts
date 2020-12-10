@@ -1,5 +1,5 @@
 import { Express } from "express"
-import { getQuestions, sendQuestion, questionTimer } from "./quiz"
+import { checkAnswer, getQuestions, sendQuestion, questionTimer } from "./quiz"
 import { Redis } from "ioredis"
 import { Server as HttpServer } from "http"
 import { Server as SocketIoServer, Socket } from "socket.io"
@@ -55,7 +55,19 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
         type: type || ""
       }).then(async questions => {
         for (let i = 0; i < questions.length; i++) {
-          await sendQuestion(questions[i], socket, questionTimer, 10000)
+          await new Promise<void>(resolve => {
+            // Send question, resolve either on timeout or receiving an answer
+            sendQuestion(questions[i], socket, questionTimer, 10000).then(() =>
+              resolve()
+            )
+            socket.on(
+              "answer",
+              (answer: string, partyId: string, userId: string) => {
+                checkAnswer(answer, questions[i])
+                resolve()
+              }
+            )
+          })
         }
       })
     })
