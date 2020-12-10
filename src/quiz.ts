@@ -1,6 +1,7 @@
+import { clearInterval } from "timers"
 import { Socket } from "socket.io"
 import axios from "axios"
-import { clearInterval } from "timers"
+import shuffle from "shuffle-array"
 
 export interface QuizOptions {
   amount?: string
@@ -17,10 +18,11 @@ interface Question {
   correct_answer: string
   incorrect_answers: Array<string>
   number?: number | undefined
+  randomised_answers?: Array<string> | undefined
 }
 
 /**
- * Get questions from Open Trivia DB.
+ * Get questions from Open Trivia DB. Adds a question number and an array of the randomised answers.
  * @param options An object consisting of options used by Open Trivia DB (see https://opentdb.com/api_config.php).
  */
 export const getQuestions = (
@@ -36,6 +38,17 @@ export const getQuestions = (
       .then(res => {
         const data = res.data.results.map(
           (question: Question, index: number) => {
+            const randomisedAnswers = shuffle([
+              ...question.incorrect_answers,
+              question.correct_answer
+            ])
+            return {
+              ...question,
+              number: index,
+              randomised_answers: randomisedAnswers
+            }
+          }
+        )
         return data
       })
       .then(data => resolve(data))
@@ -83,7 +96,13 @@ export const sendQuestion = (
   timeout?: number | undefined
 ): Promise<void> => {
   return new Promise<void>(resolve => {
-    socket.emit("new-question", question)
+    socket.emit("new-question", {
+      question: question.question,
+      answers: question.randomised_answers,
+      category: question.category,
+      difficulty: question.difficulty,
+      number: question.number
+    })
 
     if (timer) {
       timer(timeout as number, socket)?.then(() => resolve())

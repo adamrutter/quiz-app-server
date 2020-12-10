@@ -10,6 +10,7 @@
     "dotenv": "^8.2.0",
     "express": "^4.17.1",
     "ioredis": "^4.19.2",
+    "shuffle-array": "^1.0.1",
     "socket.io": "^3.0.3",
     "uuid": "^8.3.1"
   },
@@ -17,6 +18,7 @@
     "@types/express": "^4.17.9",
     "@types/ioredis": "^4.17.8",
     "@types/node": "^14.14.10",
+    "@types/shuffle-array": "^1.0.0",
     "@types/socket.io": "^2.1.11",
     "@types/uuid": "^8.3.0",
     "@typescript-eslint/eslint-plugin": "^4.9.0",
