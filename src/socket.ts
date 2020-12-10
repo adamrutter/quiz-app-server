@@ -1,4 +1,5 @@
 import { Express } from "express"
+import { getQuestions, sendQuestion, questionTimer } from "./quiz"
 import { Redis } from "ioredis"
 import { Server as HttpServer } from "http"
 import { Server as SocketIoServer, Socket } from "socket.io"
@@ -27,6 +28,22 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
     // Join an already existing party
     socket.on("join-party", (id: string) => {
       socket.join(id)
+    })
+
+    // Pull questions from Open Trivia DB and send to the client
+    socket.on("start-quiz", options => {
+      const { amount, category, difficulty, type } = options
+
+      getQuestions({
+        amount: amount || "",
+        category: category || "",
+        difficulty: difficulty || "",
+        type: type || ""
+      }).then(async questions => {
+        for (let i = 0; i < questions.length; i++) {
+          await sendQuestion(questions[i], socket, questionTimer, 10000)
+        }
+      })
     })
   })
 }
