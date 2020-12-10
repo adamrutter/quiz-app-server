@@ -1,5 +1,12 @@
 import { Express } from "express"
-import { checkAnswer, getQuestions, sendQuestion, questionTimer } from "./quiz"
+import {
+  checkAnswer,
+  getQuestions,
+  sendQuestion,
+  questionTimer,
+  updatePartyScore,
+  updateQuizScore
+} from "./quiz"
 import { Redis } from "ioredis"
 import { Server as HttpServer } from "http"
 import { Server as SocketIoServer, Socket } from "socket.io"
@@ -48,6 +55,9 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
     socket.on("start-quiz", options => {
       const { amount, category, difficulty, type } = options
 
+      const quizId = uuidv4()
+      socket.emit("new-quiz-id", quizId)
+
       getQuestions({
         amount: amount || "",
         category: category || "",
@@ -62,8 +72,16 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
             )
             socket.on(
               "answer",
-              (answer: string, partyId: string, userId: string) => {
-                checkAnswer(answer, questions[i])
+              (
+                answer: string,
+                partyId: string,
+                userId: string,
+                quizId: string
+              ) => {
+                if (checkAnswer(answer, questions[i]) === true) {
+                  updatePartyScore(userId, partyId, 1, redis)
+                  updateQuizScore(userId, quizId, 1, redis)
+                }
                 resolve()
               }
             )

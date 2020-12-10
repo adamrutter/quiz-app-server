@@ -1,4 +1,5 @@
 import { clearInterval } from "timers"
+import { Redis } from "ioredis"
 import { Socket } from "socket.io"
 import axios from "axios"
 import shuffle from "shuffle-array"
@@ -132,4 +133,42 @@ export const checkAnswer = (
   } else {
     return false
   }
+}
+
+/**
+ * Update the user's party score.
+ * @param userId The user ID provided by the client.
+ * @param partyId The ID provided by the client.
+ * @param score The amount to adjust the score by.
+ * @param redis A Redis client.
+ */
+const updatePartyScore = (
+  userId: string,
+  partyId: string,
+  score: number,
+  redis: Redis
+): Promise<void> => {
+  return new Promise<void>(resolve => {
+    console.log("party score", `score:${partyId}`)
+    redis.hincrby(`score:${partyId}`, userId, score).then(() => resolve())
+  })
+}
+
+/**
+ * Update the user's quiz score.
+ * @param userId The user ID provided by the client.
+ * @param quizId The ID provided by the client.
+ * @param score The amount to adjust the score by.
+ * @param redis A Redis client.
+ */
+const updateQuizScore = (
+  userId: string,
+  quizId: string,
+  score: number,
+  redis: Redis
+): Promise<void> => {
+  return new Promise<void>(resolve => {
+    console.log("quiz score", `score:${quizId}`)
+    redis.hincrby(`score:${quizId}`, userId, score).then(() => resolve())
+  })
 }
