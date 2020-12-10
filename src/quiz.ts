@@ -16,6 +16,7 @@ interface Question {
   question: string
   correct_answer: string
   incorrect_answers: Array<string>
+  number?: number | undefined
 }
 
 /**
@@ -32,7 +33,12 @@ export const getQuestions = (
 
     axios
       .get(`https://opentdb.com/api.php?${params}`)
-      .then(res => resolve(res.data.results))
+      .then(res => {
+        const data = res.data.results.map(
+          (question: Question, index: number) => {
+        return data
+      })
+      .then(data => resolve(data))
       .catch(err => reject(err))
   })
 }
