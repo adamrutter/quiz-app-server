@@ -62,10 +62,7 @@ export const getQuestions = (
  * @param timeout The timeout for the timer.
  * @param socket The socket used to send updates to the client.
  */
-export const questionTimer = (
-  timeout: number,
-  socket: Socket
-): Promise<void> => {
+const questionTimer = (timeout: number, socket: Socket): Promise<void> => {
   return new Promise<void>(resolve => {
     let secondsLeft = timeout / 1000
     socket.emit("timer-update", secondsLeft)
@@ -96,7 +93,7 @@ export const questionTimer = (
  * @param timer An optional timer function to delay returning the promise.
  * @param timeout The timeout for the optional timer function.
  */
-export const sendQuestion = (
+const sendQuestion = (
   question: Question,
   socket: Socket,
   timer?: (timeout: number, socket: Socket) => Promise<void> | undefined,
@@ -124,10 +121,7 @@ export const sendQuestion = (
  * @param clientAnswer The answer provided by the client.
  * @param question The server-side question object.
  */
-export const checkAnswer = (
-  clientAnswer: string,
-  question: Question
-): boolean => {
+const checkAnswer = (clientAnswer: string, question: Question): boolean => {
   if (clientAnswer === question.correct_answer) {
     return true
   } else {
@@ -149,7 +143,6 @@ const updatePartyScore = (
   redis: Redis
 ): Promise<void> => {
   return new Promise<void>(resolve => {
-    console.log("party score", `score:${partyId}`)
     redis.hincrby(`score:${partyId}`, userId, score).then(() => resolve())
   })
 }
@@ -168,7 +161,55 @@ const updateQuizScore = (
   redis: Redis
 ): Promise<void> => {
   return new Promise<void>(resolve => {
-    console.log("quiz score", `score:${quizId}`)
     redis.hincrby(`score:${quizId}`, userId, score).then(() => resolve())
   })
+}
+
+/**
+ * Handle receiving an answer from the client.
+ * @param question The server-side question object.
+ * @param socket The socket to communicate with the client.
+ * @param redis A Redis client.
+ */
+const handleAnswer = (
+  question: Question,
+  socket: Socket,
+  redis: Redis
+): Promise<void> => {
+  return new Promise(resolve => {
+    socket.on(
+      "answer",
+      (answer: string, partyId: string, userId: string, quizId: string) => {
+        if (checkAnswer(answer, question) === true) {
+          updatePartyScore(userId, partyId, 1, redis)
+          updateQuizScore(userId, quizId, 1, redis)
+        }
+        resolve()
+      }
+    )
+  })
+}
+
+/**
+ * Run the quiz. Returns a promise when all questions have been looped.
+ * @param questions An array of questions.
+ * @param socket The socket used to communicate with the client.
+ * @param redis A Redis client.
+ */
+export const quiz = async (
+  questions: Array<Question>,
+  socket: Socket,
+  redis: Redis
+): Promise<void> => {
+  // Loop through the given questions sequentially
+  for (let i = 0; i < questions.length; i++) {
+    await new Promise<void>(resolve => {
+      // Send question, resolve either on question timeout...
+      sendQuestion(questions[i], socket, questionTimer, 10000).then(() =>
+        resolve()
+      )
+      // ... or resolve on receiving an answer
+      handleAnswer(questions[i], socket, redis).then(() => resolve())
+    })
+  }
 }

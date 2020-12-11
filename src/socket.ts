@@ -1,12 +1,5 @@
 import { Express } from "express"
-import {
-  checkAnswer,
-  getQuestions,
-  sendQuestion,
-  questionTimer,
-  updatePartyScore,
-  updateQuizScore
-} from "./quiz"
+import { getQuestions, quiz } from "./quiz"
 import { Redis } from "ioredis"
 import { Server as HttpServer } from "http"
 import { Server as SocketIoServer, Socket } from "socket.io"
@@ -28,8 +21,6 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
     // Emit back to the client the id of the new party
     socket.on("request-new-party", () => {
       const partyId = uuidv4()
-      redis.hset(`party:${partyId}`)
-
       socket.emit("new-party-id", partyId)
     })
 
@@ -52,42 +43,22 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
     })
 
     // Pull questions from Open Trivia DB and send to the client
-    socket.on("start-quiz", options => {
-      const { amount, category, difficulty, type } = options
+    socket.on("start-quiz", arg => {
+      const { amount, category, difficulty, type } = arg
 
       const quizId = uuidv4()
       socket.emit("new-quiz-id", quizId)
 
-      getQuestions({
+      const options = {
         amount: amount || "",
         category: category || "",
         difficulty: difficulty || "",
         type: type || ""
-      }).then(async questions => {
-        for (let i = 0; i < questions.length; i++) {
-          await new Promise<void>(resolve => {
-            // Send question, resolve either on timeout or receiving an answer
-            sendQuestion(questions[i], socket, questionTimer, 10000).then(() =>
-              resolve()
-            )
-            socket.on(
-              "answer",
-              (
-                answer: string,
-                partyId: string,
-                userId: string,
-                quizId: string
-              ) => {
-                if (checkAnswer(answer, questions[i]) === true) {
-                  updatePartyScore(userId, partyId, 1, redis)
-                  updateQuizScore(userId, quizId, 1, redis)
-                }
-                resolve()
-              }
-            )
-          })
-        }
-      })
+      }
+
+      getQuestions(options)
+        .then(questions => quiz(questions, socket, redis))
+        .then(() => console.log("finished quiz"))
     })
   })
 }
