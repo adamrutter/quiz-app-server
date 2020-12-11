@@ -80,7 +80,7 @@ const questionTimer = (timeout: number, socket: Socket): Promise<void> => {
     }, 1000)
 
     // Stop timer once an answer has been received from client
-    socket.on("answer", () => {
+    socket.once("answer", () => {
       clearInterval(timer)
     })
   })
@@ -177,7 +177,7 @@ const handleAnswer = (
   redis: Redis
 ): Promise<void> => {
   return new Promise(resolve => {
-    socket.on(
+    socket.once(
       "answer",
       (answer: string, partyId: string, userId: string, quizId: string) => {
         if (checkAnswer(answer, question) === true) {
