@@ -200,6 +200,7 @@ export const readyPrompt = (socket: Socket, redis: Redis): Promise<void> => {
     socket.on("user-ready", async ({ userId, partyId }) => {
         const allUsers = await redis.smembers(`${partyId}:members`)
 
+        !usersReady.includes(userId) && usersReady.push(userId)
 
         if (usersReady.length === allUsers.length) {
         resolve()
