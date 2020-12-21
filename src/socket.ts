@@ -33,13 +33,7 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
     // Join an already existing party
     socket.on("join-party", async (partyId: string, userId: string) => {
       socket.join(partyId)
-
-      const partyMembers = await redis.lrange(`${partyId}:members`, 0, -1)
-
-      // Check if user is already in this party
-      if (partyMembers.length === 0 || !partyMembers.includes(userId)) {
-        joinParty(partyId, userId, redis)
-      }
+      joinParty(partyId, userId, redis)
     })
 
     // Pull questions from Open Trivia DB and send to the client
@@ -47,20 +41,20 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
       const { amount, category, difficulty, type } = arg
 
       readyPrompt(socket, redis).then(() => {
-      const quizId = uuidv4()
-      socket.emit("new-quiz-id", quizId)
+        const quizId = uuidv4()
+        socket.emit("new-quiz-id", quizId)
 
-      const options = {
-        amount: amount || "",
-        category: category || "",
-        difficulty: difficulty || "",
-        type: type || ""
-      }
+        const options = {
+          amount: amount || "",
+          category: category || "",
+          difficulty: difficulty || "",
+          type: type || ""
+        }
 
-      getQuestions(options)
-        .then(questions => quiz(questions, socket, redis))
-        .then(() => console.log("finished quiz"))
+        getQuestions(options)
+          .then(questions => quiz(questions, socket, redis))
+          .then(() => console.log("finished quiz"))
+      })
     })
-  })
   })
 }

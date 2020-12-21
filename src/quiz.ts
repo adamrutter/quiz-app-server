@@ -198,14 +198,15 @@ export const readyPrompt = (socket: Socket, redis: Redis): Promise<void> => {
     const usersReady: Array<user> = []
     socket.emit("ready-prompt")
     socket.on("user-ready", async ({ userId, partyId }) => {
-      const allUsersLength = await redis.llen(`${partyId}:members`)
-      usersReady.push(userId)
+        const allUsers = await redis.smembers(`${partyId}:members`)
 
-      if (usersReady.length === allUsersLength) {
-        socket.emit("all-users-ready")
+
+        if (usersReady.length === allUsers.length) {
         resolve()
       } else {
+          const percentUsersReady = (usersReady.length / allUsers.length) * 100
         socket.emit("these-users-ready", usersReady)
+          socket.emit("percent-users-ready", percentUsersReady)
       }
     })
   })

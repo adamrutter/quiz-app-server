@@ -11,6 +11,6 @@ export const joinParty = (
   userId: string,
   redis: Redis
 ): void => {
-  redis.rpush(`${partyId}:members`, userId)
+  redis.sadd(`${partyId}:members`, userId)
   redis.hset(`score:${partyId}`, `${userId}`, 0)
 }
