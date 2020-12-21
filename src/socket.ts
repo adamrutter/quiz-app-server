@@ -42,7 +42,7 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
 
       readyPrompt(socket, io, redis, partyId).then(() => {
         const quizId = uuidv4()
-        socket.emit("new-quiz-id", quizId)
+        io.to(partyId).emit("new-quiz-id", quizId)
 
         const options = {
           amount: amount || "",
