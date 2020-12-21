@@ -190,6 +190,27 @@ const handleAnswer = (
   })
 }
 
+export const readyPrompt = (socket: Socket, redis: Redis): Promise<void> => {
+  interface user {
+    id: string
+  }
+  return new Promise(resolve => {
+    const usersReady: Array<user> = []
+    socket.emit("ready-prompt")
+    socket.on("user-ready", async ({ userId, partyId }) => {
+      const allUsersLength = await redis.llen(`${partyId}:members`)
+      usersReady.push(userId)
+
+      if (usersReady.length === allUsersLength) {
+        socket.emit("all-users-ready")
+        resolve()
+      } else {
+        socket.emit("these-users-ready", usersReady)
+      }
+    })
+  })
+}
+
 /**
  * Run the quiz. Returns a promise when all questions have been looped.
  * @param questions An array of questions.

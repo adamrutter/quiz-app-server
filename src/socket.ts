@@ -1,5 +1,5 @@
 import { Express } from "express"
-import { getQuestions, quiz } from "./quiz"
+import { getQuestions, quiz, readyPrompt } from "./quiz"
 import { Redis } from "ioredis"
 import { Server as HttpServer } from "http"
 import { Server as SocketIoServer, Socket } from "socket.io"
@@ -46,6 +46,7 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
     socket.on("start-quiz", arg => {
       const { amount, category, difficulty, type } = arg
 
+      readyPrompt(socket, redis).then(() => {
       const quizId = uuidv4()
       socket.emit("new-quiz-id", quizId)
 
@@ -60,5 +61,6 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
         .then(questions => quiz(questions, socket, redis))
         .then(() => console.log("finished quiz"))
     })
+  })
   })
 }
