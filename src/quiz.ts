@@ -1,6 +1,6 @@
 import { clearInterval } from "timers"
 import { Redis } from "ioredis"
-import { Socket } from "socket.io"
+import { Socket, Server as SocketIoServer } from "socket.io"
 import axios from "axios"
 import shuffle from "shuffle-array"
 
@@ -190,19 +190,38 @@ const handleAnswer = (
   })
 }
 
-export const readyPrompt = (socket: Socket, redis: Redis): Promise<void> => {
+/**
+ * Emit an event telling the client to display the ready prompt.
+ *
+ * Returns a promise that resolves when all users in the room have confirmed
+ * they are ready.
+ * @param socket The socket of the user who emitted the 'start-quiz' event.
+ * @param io The socket.io server.
+ * @param redis A Redis client.
+ * @param partyId The party ID.
+ */
+export const readyPrompt = (
+  socket: Socket,
+  io: SocketIoServer,
+  redis: Redis,
+  partyId: string
+): Promise<void> => {
   interface user {
     id: string
   }
   return new Promise(resolve => {
     const usersReady: Array<user> = []
-    socket.emit("ready-prompt")
-    socket.on("user-ready", async ({ userId, partyId }) => {
+    io.to(partyId).emit("ready-prompt")
+
+    // Set up listeners on all sockets in the room
+    io.in(partyId).sockets.sockets.forEach(socket => {
+      socket.once("user-ready", async ({ userId, partyId }) => {
         const allUsers = await redis.smembers(`${partyId}:members`)
 
         !usersReady.includes(userId) && usersReady.push(userId)
 
         if (usersReady.length === allUsers.length) {
+          io.to(partyId).emit("all-users-ready")
         resolve()
       } else {
           const percentUsersReady = (usersReady.length / allUsers.length) * 100
@@ -210,6 +229,7 @@ export const readyPrompt = (socket: Socket, redis: Redis): Promise<void> => {
           socket.emit("percent-users-ready", percentUsersReady)
       }
     })
+  })
   })
 }
 
