@@ -38,7 +38,10 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
 
     // Pull questions from Open Trivia DB and send to the client
     socket.on("start-quiz", arg => {
-      const { amount, category, difficulty, type, partyId } = arg
+      const {
+        partyId,
+        options: { amount, category, difficulty, type }
+      } = arg
 
       readyPrompt(socket, io, redis, partyId).then(() => {
         const quizId = uuidv4()

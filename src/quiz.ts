@@ -31,6 +31,7 @@ export const getQuestions = (
 ): Promise<Array<Question>> => {
   return new Promise((resolve, reject) => {
     const params = Object.entries(options)
+      .filter(([key, value]) => value !== "Random")
       .map(([key, value]) => `${key}=${value}`)
       .join("&")
 
