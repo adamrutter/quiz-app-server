@@ -33,7 +33,7 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
     // Join an already existing party
     socket.on("join-party", async (partyId: string, userId: string) => {
       socket.join(partyId)
-      joinParty(partyId, userId, redis)
+      joinParty(partyId, userId, redis, socket)
     })
 
     // Pull questions from Open Trivia DB and send to the client
