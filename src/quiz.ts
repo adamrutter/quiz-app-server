@@ -88,36 +88,6 @@ const questionTimer = (timeout: number, socket: Socket): Promise<void> => {
 }
 
 /**
- * Send a question to the client. Returns a promise.
- * @param question The question to send.
- * @param socket The socket used to send the question.
- * @param timer An optional timer function to delay returning the promise.
- * @param timeout The timeout for the optional timer function.
- */
-const sendQuestion = (
-  question: Question,
-  socket: Socket,
-  timer?: (timeout: number, socket: Socket) => Promise<void> | undefined,
-  timeout?: number | undefined
-): Promise<void> => {
-  return new Promise<void>(resolve => {
-    socket.emit("new-question", {
-      question: question.question,
-      answers: question.randomised_answers,
-      category: question.category,
-      difficulty: question.difficulty,
-      number: question.number
-    })
-
-    if (timer) {
-      timer(timeout as number, socket)?.then(() => resolve())
-    } else {
-      resolve()
-    }
-  })
-}
-
-/**
  * Check answer. Returns true if correct, false if incorrect.
  * @param clientAnswer The answer provided by the client.
  * @param question The server-side question object.
@@ -167,31 +137,6 @@ const updateQuizScore = (
 }
 
 /**
- * Handle receiving an answer from the client.
- * @param question The server-side question object.
- * @param socket The socket to communicate with the client.
- * @param redis A Redis client.
- */
-const handleAnswer = (
-  question: Question,
-  socket: Socket,
-  redis: Redis
-): Promise<void> => {
-  return new Promise(resolve => {
-    socket.once(
-      "answer",
-      (answer: string, partyId: string, userId: string, quizId: string) => {
-        if (checkAnswer(answer, question) === true) {
-          updatePartyScore(userId, partyId, 1, redis)
-          updateQuizScore(userId, quizId, 1, redis)
-        }
-        resolve()
-      }
-    )
-  })
-}
-
-/**
  * Emit an event telling the client to display the ready prompt.
  *
  * Returns a promise that resolves when all users in the room have confirmed
@@ -223,14 +168,14 @@ export const readyPrompt = (
 
         if (usersReady.length === allUsers.length) {
           io.to(partyId).emit("all-users-ready")
-        resolve()
-      } else {
+          resolve()
+        } else {
           const percentUsersReady = (usersReady.length / allUsers.length) * 100
-        socket.emit("these-users-ready", usersReady)
+          socket.emit("these-users-ready", usersReady)
           socket.emit("percent-users-ready", percentUsersReady)
-      }
+        }
+      })
     })
-  })
   })
 }
 
@@ -247,13 +192,6 @@ export const quiz = async (
 ): Promise<void> => {
   // Loop through the given questions sequentially
   for (let i = 0; i < questions.length; i++) {
-    await new Promise<void>(resolve => {
-      // Send question, resolve either on question timeout...
-      sendQuestion(questions[i], socket, questionTimer, 10000).then(() =>
-        resolve()
-      )
-      // ... or resolve on receiving an answer
-      handleAnswer(questions[i], socket, redis).then(() => resolve())
-    })
+    await new Promise<void>(resolve => {})
   }
 }
