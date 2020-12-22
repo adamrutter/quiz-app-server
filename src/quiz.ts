@@ -59,31 +59,31 @@ export const getQuestions = (
 }
 
 /**
- * Start a timer, and send updates to the client. Returns a promise.
+ * Start a timer, and send updates to the client. Returns a promise on timeout.
  * @param timeout The timeout for the timer.
  * @param socket The socket used to send updates to the client.
+ * @param event The event to emit to the client.
  */
-const questionTimer = (timeout: number, socket: Socket): Promise<void> => {
+const timer = (
+  timeout: number,
+  socket: Socket,
+  event: string
+): Promise<void> => {
   return new Promise<void>(resolve => {
     let secondsLeft = timeout / 1000
-    socket.emit("timer-update", secondsLeft)
+    socket.emit(event, secondsLeft)
 
-    const timer = setInterval(() => {
+    const time = setInterval(() => {
       secondsLeft--
 
       // Stop timer at 0
       if (secondsLeft === 0) {
-        clearInterval(timer)
+        clearInterval(time)
         resolve()
       }
 
-      socket.emit("timer-update", secondsLeft)
+      socket.emit(event, secondsLeft)
     }, 1000)
-
-    // Stop timer once an answer has been received from client
-    socket.once("answer", () => {
-      clearInterval(timer)
-    })
   })
 }
 
