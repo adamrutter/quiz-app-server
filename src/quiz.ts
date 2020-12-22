@@ -66,12 +66,13 @@ export const getQuestions = (
  */
 const timer = (
   timeout: number,
-  socket: Socket,
-  event: string
+  io: SocketIoServer,
+  event: string,
+  partyId: string
 ): Promise<void> => {
   return new Promise<void>(resolve => {
     let secondsLeft = timeout / 1000
-    socket.emit(event, secondsLeft)
+    io.in(partyId).emit(event, secondsLeft)
 
     const time = setInterval(() => {
       secondsLeft--
@@ -82,7 +83,7 @@ const timer = (
         resolve()
       }
 
-      socket.emit(event, secondsLeft)
+      io.in(partyId).emit(event, secondsLeft)
     }, 1000)
   })
 }
