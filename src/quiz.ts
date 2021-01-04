@@ -281,6 +281,27 @@ const handleAnswer = (
 }
 
 /**
+ * Resolve conditions for the current question.
+ * @param io
+ * @param redis
+ * @param partyId
+ * @param quizId
+ * @param questionNumber
+ */
+const questionResolve = async (
+  io: SocketIoServer,
+  redis: Redis,
+  partyId: string,
+  quizId: string,
+  questionNumber: number
+) => {
+  await Promise.any([
+    timer(10000, io, `timer-update-${quizId}-${questionNumber + 1}`, partyId),
+    allAnswersReceived(quizId, questionNumber, redis)
+  ])
+}
+
+/**
  * Run the quiz. Returns a promise when all questions have been looped.
  * @param questions An array of questions.
  * @param socket The socket used to communicate with the client.
