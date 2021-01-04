@@ -1,8 +1,11 @@
 import { clearInterval } from "timers"
+import { EventEmitter } from "events"
 import { Redis } from "ioredis"
 import { Socket, Server as SocketIoServer } from "socket.io"
 import axios from "axios"
 import shuffle from "shuffle-array"
+
+const eventEmitter = new EventEmitter()
 
 export interface QuizOptions {
   amount?: string
@@ -195,6 +198,50 @@ const sendQuestion = (
     category: question.category,
     difficulty: question.difficulty,
     number: question.number
+  })
+}
+
+/**
+ * Emit an event when all clients have sent an answer.
+ */
+const listenForAllAnswers = (
+  redis: Redis,
+  quizId: string,
+  questionNumber: number
+) => {
+  const listener = async (partyId: string) => {
+    const numberOfAnswers = await redis.incr(
+      `${quizId}:${questionNumber}:answers`
+    )
+        const allPartyMembers = await redis.smembers(`${partyId}:members`)
+    const numberOfPartyMembers = allPartyMembers.length
+
+    if (numberOfAnswers === numberOfPartyMembers) {
+      eventEmitter.emit(`all-answers-received-${quizId}-${questionNumber + 1}`)
+        }
+      }
+
+  eventEmitter.on(`answer-received-${quizId}-${questionNumber + 1}`, listener)
+}
+
+const allAnswersReceived = (
+  quizId: string,
+  questionNumber: number,
+  redis: Redis
+) => {
+  listenForAllAnswers(redis, quizId, questionNumber)
+
+  return new Promise<void>(resolve => {
+    eventEmitter.once(
+      `all-answers-received-${quizId}-${questionNumber + 1}`,
+      () => {
+        // Remove event listeners for this quiz/question combo
+        eventEmitter.removeAllListeners(
+          `answer-received-${quizId}-${questionNumber + 1}`
+    )
+        resolve()
+      }
+    )
   })
 }
 
