@@ -181,6 +181,24 @@ export const readyPrompt = (
 }
 
 /**
+ * Send a question to the client.
+ */
+const sendQuestion = (
+  question: Question,
+  partyId: string,
+  socket: Socket,
+  io: SocketIoServer
+) => {
+  io.to(partyId).emit("new-question", {
+    question: question.question,
+    answers: question.randomised_answers,
+    category: question.category,
+    difficulty: question.difficulty,
+    number: question.number
+  })
+}
+
+/**
  * Run the quiz. Returns a promise when all questions have been looped.
  * @param questions An array of questions.
  * @param socket The socket used to communicate with the client.
