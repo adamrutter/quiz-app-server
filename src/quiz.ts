@@ -246,6 +246,41 @@ const allAnswersReceived = (
 }
 
 /**
+ * Handle receiving an answer from a client.
+ *
+ * Updates the user's score if correct, and emits an event to notify node.js an
+ * answer has been received.
+ *
+ */
+const handleAnswer = (
+  question: Question,
+  partyId: string,
+  io: SocketIoServer,
+  redis: Redis
+) => {
+  const answerHandler = (
+    answer: string,
+    partyId: string,
+    userId: string,
+    quizId: string
+  ) => {
+    eventEmitter.emit(
+      `answer-received-${quizId}-${question.number + 1}`,
+      partyId,
+      quizId
+    )
+        if (checkAnswer(answer, question) === true) {
+          updateQuizScore(userId, quizId, 1, redis)
+        }
+      }
+
+  // Set up a socket.io listener for each client
+  io.in(partyId).sockets.sockets.forEach(async socket => {
+    socket.once("answer", answerHandler)
+  })
+}
+
+/**
  * Run the quiz. Returns a promise when all questions have been looped.
  * @param questions An array of questions.
  * @param socket The socket used to communicate with the client.
