@@ -302,6 +302,20 @@ const questionResolve = async (
 }
 
 /**
+ * Send the correct answer's index from the answers array.
+ * @param correctAnswerIndex The index of the correct answer in the answers array.
+ * @param partyId
+ * @param io
+ */
+const sendCorrectAnswerIndex = (
+  correctAnswerIndex: number | undefined,
+  partyId: string,
+  io: SocketIoServer
+) => {
+  io.in(partyId).emit("correct-answer", correctAnswerIndex)
+}
+
+/**
  * Run the quiz. Returns a promise when all questions have been looped.
  * @param questions An array of questions.
  * @param socket The socket used to communicate with the client.
