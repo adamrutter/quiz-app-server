@@ -316,6 +316,24 @@ const sendCorrectAnswerIndex = (
 }
 
 /**
+ * Send the total amount of questions to the client.
+ * @param amountOfQuestions The total amount of questions.
+ * @param io The socket.io server.
+ * @param partyId The party ID from the client.
+ */
+const sendAmountOfQuestions = (
+  amountOfQuestions: number,
+  io: SocketIoServer,
+  partyId: string
+): void => {
+  io.in(partyId).emit("amount-of-questions", amountOfQuestions)
+}
+
+) => {
+  io.in(partyId).emit("amount-of-questions", amountOfQuestions)
+}
+
+/**
  * Run the quiz. Returns a promise when all questions have been looped.
  * @param questions An array of questions.
  * @param socket The socket used to communicate with the client.
