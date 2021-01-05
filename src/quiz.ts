@@ -49,7 +49,7 @@ export const getQuestions = (
             ])
             return {
               ...question,
-              number: index,
+              number: index + 1,
               randomised_answers: randomisedAnswers
             }
           }
@@ -197,7 +197,7 @@ const sendQuestion = (
     answers: question.randomised_answers,
     category: question.category,
     difficulty: question.difficulty,
-    number: question.number + 1
+    number: question.number
   })
 }
 
@@ -213,15 +213,15 @@ const listenForAllAnswers = (
     const numberOfAnswers = await redis.incr(
       `${quizId}:${questionNumber}:answers`
     )
-        const allPartyMembers = await redis.smembers(`${partyId}:members`)
+    const allPartyMembers = await redis.smembers(`${partyId}:members`)
     const numberOfPartyMembers = allPartyMembers.length
 
     if (numberOfAnswers === numberOfPartyMembers) {
-      eventEmitter.emit(`all-answers-received-${quizId}-${questionNumber + 1}`)
-        }
-      }
+      eventEmitter.emit(`all-answers-received-${quizId}-${questionNumber}`)
+    }
+  }
 
-  eventEmitter.on(`answer-received-${quizId}-${questionNumber + 1}`, listener)
+  eventEmitter.on(`answer-received-${quizId}-${questionNumber}`, listener)
 }
 
 const allAnswersReceived = (
@@ -233,12 +233,12 @@ const allAnswersReceived = (
 
   return new Promise<void>(resolve => {
     eventEmitter.once(
-      `all-answers-received-${quizId}-${questionNumber + 1}`,
+      `all-answers-received-${quizId}-${questionNumber}`,
       () => {
         // Remove event listeners for this quiz/question combo
         eventEmitter.removeAllListeners(
-          `answer-received-${quizId}-${questionNumber + 1}`
-    )
+          `answer-received-${quizId}-${questionNumber}`
+        )
         resolve()
       }
     )
@@ -265,14 +265,14 @@ const handleAnswer = (
     quizId: string
   ) => {
     eventEmitter.emit(
-      `answer-received-${quizId}-${question.number + 1}`,
+      `answer-received-${quizId}-${question.number}`,
       partyId,
       quizId
     )
-        if (checkAnswer(answer, question) === true) {
-          updateQuizScore(userId, quizId, 1, redis)
-        }
-      }
+    if (checkAnswer(answer, question) === true) {
+      updateQuizScore(userId, quizId, 1, redis)
+    }
+  }
 
   // Set up a socket.io listener for each client
   io.in(partyId).sockets.sockets.forEach(async socket => {
@@ -296,7 +296,7 @@ const questionResolve = async (
   questionNumber: number
 ) => {
   await Promise.any([
-    timer(10000, io, `timer-update-${quizId}-${questionNumber + 1}`, partyId),
+    timer(10000, io, `timer-update-${quizId}-${questionNumber}`, partyId),
     allAnswersReceived(quizId, questionNumber, redis)
   ])
 }
