@@ -329,8 +329,39 @@ const sendAmountOfQuestions = (
   io.in(partyId).emit("amount-of-questions", amountOfQuestions)
 }
 
+const setupQuestion = async (
+  question: Question,
+  partyId: string,
+  socket: Socket,
+  redis: Redis,
+  io: SocketIoServer,
+  quizId: string
 ) => {
-  io.in(partyId).emit("amount-of-questions", amountOfQuestions)
+  sendQuestion(question, partyId, socket, io)
+  handleAnswer(question, partyId, io, redis)
+  await questionResolve(io, redis, partyId, quizId, question.number)
+
+  const correctAnswerIndex = question.randomised_answers?.findIndex(
+    el => el === question.correct_answer
+  )
+  sendCorrectAnswerIndex(correctAnswerIndex, partyId, io)
+}
+
+/**
+ * Steps to complete after question completion.
+ * @param io
+ * @param partyId
+ * @param resolve
+ */
+const finishQuestion = (
+  io: SocketIoServer,
+  partyId: string,
+  resolve: (value: void | PromiseLike<void>) => void
+) => {
+  setTimeout(() => {
+    io.in(partyId).emit("finish-question")
+    resolve()
+  }, 1500)
 }
 
 /**
@@ -341,11 +372,21 @@ const sendAmountOfQuestions = (
  */
 export const quiz = async (
   questions: Array<Question>,
+  partyId: string,
   socket: Socket,
-  redis: Redis
+  redis: Redis,
+  io: SocketIoServer,
+  quizId: string
 ): Promise<void> => {
+  // Send amount of questions to client
+  sendAmountOfQuestions(questions.length, io, partyId)
+
   // Loop through the given questions sequentially
   for (let i = 0; i < questions.length; i++) {
-    await new Promise<void>(resolve => {})
+    await new Promise<void>(resolve => {
+      setupQuestion(questions[i], partyId, socket, redis, io, quizId).then(() =>
+        finishQuestion(io, partyId, resolve)
+      )
+    })
   }
 }
