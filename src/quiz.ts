@@ -21,7 +21,7 @@ interface Question {
   question: string
   correct_answer: string
   incorrect_answers: Array<string>
-  number?: number | undefined
+  number: number
   randomised_answers?: Array<string> | undefined
 }
 
@@ -197,7 +197,7 @@ const sendQuestion = (
     answers: question.randomised_answers,
     category: question.category,
     difficulty: question.difficulty,
-    number: question.number
+    number: question.number + 1
   })
 }
 
