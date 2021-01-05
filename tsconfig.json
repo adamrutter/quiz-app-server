@@ -6,6 +6,7 @@
     "outDir": "./build",
     "strict": true,
     "target": "es5",
+    "lib": ["esnext"],
   },
   "include": ["src/**/*"],
 }
