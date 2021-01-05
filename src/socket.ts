@@ -58,7 +58,7 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
           .then(questions =>
             quiz(questions, partyId, socket, redis, io, quizId)
           )
-          .then(() => console.log("finished quiz"))
+          .then(() => io.to(partyId).emit("quiz-finished"))
       })
     })
   })
