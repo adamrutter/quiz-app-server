@@ -227,7 +227,8 @@ const listenForAllAnswers = (
 const allAnswersReceived = (
   quizId: string,
   questionNumber: number,
-  redis: Redis
+  redis: Redis,
+  io: SocketIoServer
 ) => {
   listenForAllAnswers(redis, quizId, questionNumber)
 
@@ -239,6 +240,7 @@ const allAnswersReceived = (
         eventEmitter.removeAllListeners(
           `answer-received-${quizId}-${questionNumber}`
         )
+        io.removeAllListeners(`answer-${quizId}-${questionNumber}`)
         resolve()
       }
     )
@@ -256,14 +258,11 @@ const handleAnswer = (
   question: Question,
   partyId: string,
   io: SocketIoServer,
-  redis: Redis
+  redis: Redis,
+  quizId: string,
+  questionNumber: number
 ) => {
-  const answerHandler = (
-    answer: string,
-    partyId: string,
-    userId: string,
-    quizId: string
-  ) => {
+  const answerHandler = (answer: string, partyId: string, userId: string) => {
     eventEmitter.emit(
       `answer-received-${quizId}-${question.number}`,
       partyId,
@@ -276,7 +275,7 @@ const handleAnswer = (
 
   // Set up a socket.io listener for each client
   io.in(partyId).sockets.sockets.forEach(async socket => {
-    socket.once("answer", answerHandler)
+    socket.once(`answer-${quizId}-${questionNumber}`, answerHandler)
   })
 }
 
@@ -297,7 +296,7 @@ const questionResolve = async (
 ) => {
   await Promise.any([
     timer(10000, io, `timer-update-${quizId}-${questionNumber}`, partyId),
-    allAnswersReceived(quizId, questionNumber, redis)
+    allAnswersReceived(quizId, questionNumber, redis, io)
   ])
 }
 
@@ -338,7 +337,7 @@ const setupQuestion = async (
   quizId: string
 ) => {
   sendQuestion(question, partyId, socket, io)
-  handleAnswer(question, partyId, io, redis)
+  handleAnswer(question, partyId, io, redis, quizId, question.number)
   await questionResolve(io, redis, partyId, quizId, question.number)
 
   const correctAnswerIndex = question.randomised_answers?.findIndex(
