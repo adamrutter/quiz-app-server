@@ -77,3 +77,13 @@ export const sendAllPartyDisplayNames = async (
   const partyNamesHash = await redis.hgetall(`${partyId}:display-names`)
   io.in(partyId).emit("party-members", partyNamesHash)
 }
+
+export const removePartyMember = async (
+  userId: string,
+  partyId: string,
+  redis: Redis
+): Promise<void> => {
+  redis.srem(`${partyId}:members`, userId)
+  redis.hdel(`score:${partyId}`, userId)
+  redis.hdel(`${partyId}:display-names`, userId)
+}

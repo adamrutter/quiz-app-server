@@ -8,6 +8,7 @@ import {
   assignDisplayName,
   changeDisplayName,
   joinParty,
+  removePartyMember,
   sendAllPartyDisplayNames,
   sendUserDisplayName
 } from "./party"
@@ -84,6 +85,16 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
     // Send party members list to client
     socket.on("request-party-members", (partyId: string) => {
       sendAllPartyDisplayNames(partyId, redis, io)
+    })
+
+    // Remove a member from the party
+    socket.on("kick-party-member", (userId: string, partyId: string) => {
+      // Tell clients which user is being removed from the party
+      io.in(partyId).emit("user-leaving-party", userId)
+
+      removePartyMember(userId, partyId, redis).then(() =>
+        sendAllPartyDisplayNames(partyId, redis, io)
+      )
     })
   })
 }
