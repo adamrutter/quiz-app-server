@@ -4,7 +4,13 @@ import { Redis } from "ioredis"
 import { Server as HttpServer } from "http"
 import { Server as SocketIoServer, Socket } from "socket.io"
 import { v4 as uuidv4 } from "uuid"
-import { joinParty } from "./party"
+import {
+  assignDisplayName,
+  changeDisplayName,
+  joinParty,
+  sendAllPartyDisplayNames,
+  sendUserDisplayName
+} from "./party"
 
 export const setupSocketIO = (server: HttpServer, app: Express): void => {
   const io = new SocketIoServer(server, {
@@ -34,6 +40,9 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
     socket.on("join-party", async (partyId: string, userId: string) => {
       socket.join(partyId)
       joinParty(partyId, userId, redis, socket)
+      assignDisplayName(userId, partyId, redis)
+        .then(() => sendUserDisplayName(userId, partyId, socket, redis))
+        .then(() => sendAllPartyDisplayNames(partyId, redis, io))
     })
 
     // Pull questions from Open Trivia DB and send to the client
@@ -60,6 +69,21 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
           )
           .then(() => io.to(partyId).emit("quiz-finished"))
       })
+    })
+
+    // Update a user's display name
+    socket.on(
+      "change-display-name",
+      (name: string, userId: string, partyId: string) => {
+        changeDisplayName(userId, name, partyId, redis)
+          .then(() => sendUserDisplayName(userId, partyId, socket, redis))
+          .then(() => sendAllPartyDisplayNames(partyId, redis, io))
+      }
+    )
+
+    // Send party members list to client
+    socket.on("request-party-members", (partyId: string) => {
+      sendAllPartyDisplayNames(partyId, redis, io)
     })
   })
 }
