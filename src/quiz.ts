@@ -119,15 +119,13 @@ const checkAnswer = (clientAnswer: string, question: Question): boolean => {
  * @param score The amount to adjust the score by.
  * @param redis A Redis client.
  */
-const updateQuizScore = (
+const updateQuizScore = async (
   userId: string,
   quizId: string,
   score: number,
   redis: Redis
 ): Promise<void> => {
-  return new Promise<void>(resolve => {
-    redis.hincrby(`score:${quizId}`, userId, score).then(() => resolve())
-  })
+  await redis.hincrby(`score:${quizId}`, userId, score)
 }
 
 /**
