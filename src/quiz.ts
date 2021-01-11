@@ -138,36 +138,39 @@ const updateQuizScore = async (
  * @param redis A Redis client.
  * @param partyId The party ID.
  */
-export const readyPrompt = (
-  socket: Socket,
+export const readyPrompt = async (
   io: SocketIoServer,
   redis: Redis,
   partyId: string
 ): Promise<void> => {
-  interface user {
-    id: string
-  }
-  return new Promise(resolve => {
-    const usersReady: Array<user> = []
-    io.to(partyId).emit("ready-prompt")
+  const usersReady: Array<string> = []
 
-    // Set up listeners on all sockets in the room
-    io.in(partyId).sockets.sockets.forEach(socket => {
-      socket.once("user-ready", async ({ userId, partyId }) => {
-        const allUsers = await redis.smembers(`${partyId}:members`)
+  io.to(partyId).emit("ready-prompt")
 
-        !usersReady.includes(userId) && usersReady.push(userId)
+  const listenForReady = async (
+    socket: Socket,
+    resolve: (value: void | PromiseLike<void>) => void
+  ) => {
+    const allUsers = await redis.smembers(`${partyId}:members`)
 
-        if (usersReady.length === allUsers.length) {
-          io.to(partyId).emit("all-users-ready")
-          resolve()
-        } else {
-          const percentUsersReady = (usersReady.length / allUsers.length) * 100
-          socket.emit("these-users-ready", usersReady)
-          socket.emit("percent-users-ready", percentUsersReady)
-        }
-      })
+    socket.once("user-ready", async ({ userId, partyId }) => {
+      !usersReady.includes(userId) && usersReady.push(userId)
+
+      if (usersReady.length === allUsers.length) {
+        io.to(partyId).emit("all-users-ready")
+        resolve()
+      } else {
+        const percentUsersReady = (usersReady.length / allUsers.length) * 100
+        socket.emit("these-users-ready", usersReady)
+        socket.emit("percent-users-ready", percentUsersReady)
+      }
     })
+  }
+
+  return new Promise(resolve => {
+    io.in(partyId).sockets.sockets.forEach(socket =>
+      listenForReady(socket, resolve)
+    )
   })
 }
 

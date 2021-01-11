@@ -53,7 +53,7 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
         options: { amount, category, difficulty, type }
       } = arg
 
-      readyPrompt(socket, io, redis, partyId).then(() => {
+      readyPrompt(io, redis, partyId).then(() => {
         const quizId = uuidv4()
         io.to(partyId).emit("new-quiz-id", quizId)
 
@@ -69,6 +69,7 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
             quiz(questions, partyId, socket, redis, io, quizId)
           )
           .then(() => io.to(partyId).emit("quiz-finished"))
+          .catch(err => console.log("we've got an error!"))
       })
     })
 
