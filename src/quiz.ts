@@ -105,24 +105,6 @@ const checkAnswer = (clientAnswer: string, question: Question): boolean => {
 }
 
 /**
- * Update the user's party score.
- * @param userId The user ID provided by the client.
- * @param partyId The ID provided by the client.
- * @param score The amount to adjust the score by.
- * @param redis A Redis client.
- */
-const updatePartyScore = (
-  userId: string,
-  partyId: string,
-  score: number,
-  redis: Redis
-): Promise<void> => {
-  return new Promise<void>(resolve => {
-    redis.hincrby(`score:${partyId}`, userId, score).then(() => resolve())
-  })
-}
-
-/**
  * Update the user's quiz score.
  * @param userId The user ID provided by the client.
  * @param quizId The ID provided by the client.
