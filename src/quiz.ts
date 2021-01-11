@@ -25,6 +25,11 @@ interface Question {
   randomised_answers?: Array<string> | undefined
 }
 
+interface UserScore {
+  user: string
+  score: string
+}
+
 /**
  * Get questions from Open Trivia DB. Adds a question number and an array of the randomised answers.
  * @param options An object consisting of options used by Open Trivia DB (see https://opentdb.com/api_config.php).
@@ -310,6 +315,34 @@ const sendAmountOfQuestions = (
   io.in(partyId).emit("amount-of-questions", amountOfQuestions)
 }
 
+const generateScorecard = async (
+  quizId: string,
+  partyId: string,
+  redis: Redis
+): Promise<Array<UserScore>> => {
+  const displayNames = await redis.hgetall(`${partyId}:display-names`)
+  const scores = await redis.hgetall(`score:${quizId}`)
+
+  const scorecard = Object.entries(scores).map(([userId, score]) => {
+    const name = displayNames[userId]
+    return { user: name, score }
+  })
+
+  return new Promise(resolve => {
+    resolve(scorecard)
+  })
+}
+
+const sendScorecard = async (
+  quizId: string,
+  partyId: string,
+  redis: Redis,
+  io: SocketIoServer
+): Promise<void> => {
+  const scorecard = await generateScorecard(quizId, partyId, redis)
+  io.in(partyId).emit("updated-scorecard", scorecard)
+}
+
 const setupQuestion = async (
   question: Question,
   partyId: string,
@@ -318,6 +351,7 @@ const setupQuestion = async (
   io: SocketIoServer,
   quizId: string
 ) => {
+  sendScorecard(quizId, partyId, redis, io)
   sendQuestion(question, partyId, socket, io)
   handleAnswer(question, partyId, io, redis, quizId, question.number)
   await questionResolve(io, redis, partyId, quizId, question.number)
@@ -337,12 +371,30 @@ const setupQuestion = async (
 const finishQuestion = (
   io: SocketIoServer,
   partyId: string,
+  quizId: string,
+  redis: Redis,
   resolve: (value: void | PromiseLike<void>) => void
 ) => {
+  sendScorecard(quizId, partyId, redis, io)
   setTimeout(() => {
     io.in(partyId).emit("finish-question")
     resolve()
   }, 1500)
+}
+
+/**
+ * Set up a scoreboard for this quiz, initialising all scores to 0.
+ * @param quizId
+ * @param partyId
+ * @param redis
+ */
+const setupQuizScoresHash = async (
+  quizId: string,
+  partyId: string,
+  redis: Redis
+): Promise<void> => {
+  const users = await redis.smembers(`${partyId}:members`)
+  users.forEach(user => redis.hset(`score:${quizId}`, user, 0))
 }
 
 /**
@@ -362,11 +414,14 @@ export const quiz = async (
   // Send amount of questions to client
   sendAmountOfQuestions(questions.length, io, partyId)
 
+  // Set up a scoreboard
+  setupQuizScoresHash(quizId, partyId, redis)
+
   // Loop through the given questions sequentially
   for (let i = 0; i < questions.length; i++) {
     await new Promise<void>(resolve => {
       setupQuestion(questions[i], partyId, socket, redis, io, quizId).then(() =>
-        finishQuestion(io, partyId, resolve)
+        finishQuestion(io, partyId, quizId, redis, resolve)
       )
     })
   }
