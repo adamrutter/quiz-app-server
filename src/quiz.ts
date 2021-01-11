@@ -34,36 +34,39 @@ interface UserScore {
  * Get questions from Open Trivia DB. Adds a question number and an array of the randomised answers.
  * @param options An object consisting of options used by Open Trivia DB (see https://opentdb.com/api_config.php).
  */
-export const getQuestions = (
+export const getQuestions = async (
   options: QuizOptions
 ): Promise<Array<Question>> => {
-  return new Promise((resolve, reject) => {
+  try {
     const params = Object.entries(options)
       .filter(([key, value]) => value !== "Random")
       .map(([key, value]) => `${key}=${value}`)
       .join("&")
+    const apiQuery = `https://opentdb.com/api.php?${params}`
 
-    axios
-      .get(`https://opentdb.com/api.php?${params}`)
-      .then(res => {
-        const data = res.data.results.map(
-          (question: Question, index: number) => {
-            const randomisedAnswers = shuffle([
-              ...question.incorrect_answers,
-              question.correct_answer
-            ])
-            return {
-              ...question,
-              number: index + 1,
-              randomised_answers: randomisedAnswers
-            }
-          }
-        )
-        return data
-      })
-      .then(data => resolve(data))
-      .catch(err => reject(err))
-  })
+    const {
+      data: { results: questions }
+    } = await axios.get(apiQuery)
+
+    const processedQuestions = questions.map(
+      (question: Question, index: number) => {
+        const randomisedAnswers = shuffle([
+          ...question.incorrect_answers,
+          question.correct_answer
+        ])
+
+        return {
+          ...question,
+          number: index + 1,
+          randomised_answers: randomisedAnswers
+        }
+      }
+    )
+
+    return processedQuestions
+  } catch (err) {
+    throw new Error(err)
+  }
 }
 
 /**
