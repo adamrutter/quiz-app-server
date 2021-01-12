@@ -238,6 +238,13 @@ const listenForAllAnswers = (
   eventEmitter.on(`answer-received-${quizId}-${questionNumber}`, listener)
 }
 
+/**
+ * Returns a promise that resolves when all clients have provided an answer.
+ * @param quizId
+ * @param questionNumber
+ * @param redis
+ * @param io
+ */
 const allAnswersReceived = (
   quizId: string,
   questionNumber: number,
