@@ -161,7 +161,7 @@ const updateQuizScore = async (
  * @param redis A Redis client.
  * @param partyId The party ID.
  */
-export const readyPrompt = async (
+export const allUsersReady = async (
   io: SocketIoServer,
   redis: Redis,
   partyId: string

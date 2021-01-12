@@ -1,5 +1,5 @@
 import { Express } from "express"
-import { getQuestions, quiz, readyPrompt } from "./quiz"
+import { getQuestions, quiz, allUsersReady } from "./quiz"
 import { Redis } from "ioredis"
 import { Server as HttpServer } from "http"
 import { Server as SocketIoServer, Socket } from "socket.io"
@@ -54,7 +54,7 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
       } = arg
 
       // Wait for all users to confirm they are ready
-      await readyPrompt(io, redis, partyId)
+      await allUsersReady(io, redis, partyId)
 
       // Send the ID for the new quiz to all clients
       const quizId = uuidv4()
