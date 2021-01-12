@@ -14,7 +14,16 @@ export interface QuizOptions {
   type?: string
 }
 
-interface Question {
+interface ApiResponseQuestion {
+  category: string
+  type: string
+  difficulty: string
+  question: string
+  correct_answer: string
+  incorrect_answers: Array<string>
+}
+
+interface ProcessedQuestion {
   category: string
   type: string
   difficulty: string
@@ -22,7 +31,7 @@ interface Question {
   correct_answer: string
   incorrect_answers: Array<string>
   number: number
-  randomised_answers?: Array<string> | undefined
+  randomised_answers: Array<string> | undefined
 }
 
 interface UserScore {
@@ -31,12 +40,38 @@ interface UserScore {
 }
 
 /**
+ * Process the given questions into the format we want. Adds a randomised answer
+ * array, and a question number.
+ * @param questions
+ */
+const processQuestions = (
+  questions: Array<ApiResponseQuestion>
+): Array<ProcessedQuestion> => {
+  const processed = questions.map(
+    (question: ApiResponseQuestion, index: number) => {
+      const randomisedAnswers = shuffle([
+        ...question.incorrect_answers,
+        question.correct_answer
+      ])
+
+      return {
+        ...question,
+        number: index + 1,
+        randomised_answers: randomisedAnswers
+      }
+    }
+  )
+
+  return processed
+}
+
+/**
  * Get questions from Open Trivia DB. Adds a question number and an array of the randomised answers.
  * @param options An object consisting of options used by Open Trivia DB (see https://opentdb.com/api_config.php).
  */
 export const getQuestions = async (
   options: QuizOptions
-): Promise<Array<Question>> => {
+): Promise<Array<ProcessedQuestion>> => {
   try {
     const params = Object.entries(options)
       .filter(([key, value]) => value !== "Random")
@@ -48,22 +83,7 @@ export const getQuestions = async (
       data: { results: questions }
     } = await axios.get(apiQuery)
 
-    const processedQuestions = questions.map(
-      (question: Question, index: number) => {
-        const randomisedAnswers = shuffle([
-          ...question.incorrect_answers,
-          question.correct_answer
-        ])
-
-        return {
-          ...question,
-          number: index + 1,
-          randomised_answers: randomisedAnswers
-        }
-      }
-    )
-
-    return processedQuestions
+    return processQuestions(questions)
   } catch (err) {
     throw new Error(err)
   }
@@ -104,7 +124,10 @@ const timer = (
  * @param clientAnswer The answer provided by the client.
  * @param question The server-side question object.
  */
-const checkAnswer = (clientAnswer: string, question: Question): boolean => {
+const checkAnswer = (
+  clientAnswer: string,
+  question: ApiResponseQuestion
+): boolean => {
   if (clientAnswer === question.correct_answer) {
     return true
   } else {
@@ -178,7 +201,7 @@ export const readyPrompt = async (
  * Send a question to the client.
  */
 const sendQuestion = (
-  question: Question,
+  question: ProcessedQuestion,
   partyId: string,
   socket: Socket,
   io: SocketIoServer
@@ -246,7 +269,7 @@ const allAnswersReceived = (
  *
  */
 const handleAnswer = (
-  question: Question,
+  question: ProcessedQuestion,
   partyId: string,
   io: SocketIoServer,
   redis: Redis,
@@ -348,7 +371,7 @@ const sendScorecard = async (
 }
 
 const setupQuestion = async (
-  question: Question,
+  question: ProcessedQuestion,
   partyId: string,
   socket: Socket,
   redis: Redis,
@@ -408,7 +431,7 @@ const setupQuizScoresHash = async (
  * @param redis A Redis client.
  */
 export const quiz = async (
-  questions: Array<Question>,
+  questions: Array<ProcessedQuestion>,
   partyId: string,
   socket: Socket,
   redis: Redis,
