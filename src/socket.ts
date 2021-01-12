@@ -79,10 +79,10 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
     // Update a user's display name
     socket.on(
       "change-display-name",
-      (name: string, userId: string, partyId: string) => {
-        changeDisplayName(userId, name, partyId, redis)
-          .then(() => sendUserDisplayName(userId, partyId, socket, redis))
-          .then(() => sendAllPartyDisplayNames(partyId, redis, io))
+      async (name: string, userId: string, partyId: string) => {
+        await changeDisplayName(userId, name, partyId, redis)
+        await sendUserDisplayName(userId, partyId, socket, redis)
+        sendAllPartyDisplayNames(partyId, redis, io)
       }
     )
 
