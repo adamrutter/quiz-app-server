@@ -47,30 +47,33 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
     })
 
     // Pull questions from Open Trivia DB and send to the client
-    socket.on("start-quiz", arg => {
+    socket.on("start-quiz", async arg => {
       const {
         partyId,
         options: { amount, category, difficulty, type }
       } = arg
 
-      readyPrompt(io, redis, partyId).then(() => {
-        const quizId = uuidv4()
-        io.to(partyId).emit("new-quiz-id", quizId)
+      // Wait for all users to confirm they are ready
+      await readyPrompt(io, redis, partyId)
 
-        const options = {
-          amount: amount || "",
-          category: category || "",
-          difficulty: difficulty || "",
-          type: type || ""
-        }
+      // Send the ID for the new quiz to all clients
+      const quizId = uuidv4()
+      io.to(partyId).emit("new-quiz-id", quizId)
 
-        getQuestions(options)
-          .then(questions =>
-            quiz(questions, partyId, socket, redis, io, quizId)
-          )
-          .then(() => io.to(partyId).emit("quiz-finished"))
-          .catch(err => console.log("we've got an error!"))
-      })
+      // Get questions using the given options
+      const options = {
+        amount: amount || "",
+        category: category || "",
+        difficulty: difficulty || "",
+        type: type || ""
+      }
+      const questions = await getQuestions(options)
+
+      // Run the quiz, and await its finish
+      await quiz(questions, partyId, socket, redis, io, quizId)
+
+      // Tell clients the quiz has finished
+      io.to(partyId).emit("quiz-finished")
     })
 
     // Update a user's display name
