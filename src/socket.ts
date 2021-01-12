@@ -92,13 +92,12 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
     })
 
     // Remove a member from the party
-    socket.on("kick-party-member", (userId: string, partyId: string) => {
+    socket.on("kick-party-member", async (userId: string, partyId: string) => {
       // Tell clients which user is being removed from the party
       io.in(partyId).emit("user-leaving-party", userId)
 
-      removePartyMember(userId, partyId, redis).then(() =>
-        sendAllPartyDisplayNames(partyId, redis, io)
-      )
+      await removePartyMember(userId, partyId, redis)
+      sendAllPartyDisplayNames(partyId, redis, io)
     })
   })
 }
