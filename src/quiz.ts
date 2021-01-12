@@ -289,7 +289,9 @@ const handleAnswer = (
       partyId,
       quizId
     )
-    if (checkAnswer(answer, question) === true) {
+
+    const answerCorrect = checkAnswer(answer, question)
+    if (answerCorrect) {
       updateQuizScore(userId, quizId, 1, redis)
     }
   }
