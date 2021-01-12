@@ -40,6 +40,14 @@ interface UserScore {
 }
 
 /**
+ * Returns a promise that resolves after the given timeout.
+ * @param timeout
+ */
+const asyncTimeout = (timeout: number) => {
+  return new Promise(resolve => setTimeout(resolve, timeout))
+}
+
+/**
  * Process the given questions into the format we want. Adds a randomised answer
  * array, and a question number.
  * @param questions
@@ -275,7 +283,7 @@ const allAnswersReceived = (
  * answer has been received.
  *
  */
-const handleAnswer = (
+const setupAnswerHandling = (
   question: ProcessedQuestion,
   partyId: string,
   io: SocketIoServer,
@@ -379,7 +387,32 @@ const sendScorecard = async (
   io.in(partyId).emit("updated-scorecard", scorecard)
 }
 
-const setupQuestion = async (
+/**
+ * Steps to complete before the question.
+ * @param quizId
+ * @param partyId
+ * @param redis
+ * @param io
+ */
+const preQuestionProcedure = async (
+  quizId: string,
+  partyId: string,
+  redis: Redis,
+  io: SocketIoServer
+) => {
+  await sendScorecard(quizId, partyId, redis, io)
+}
+
+/**
+ * Run procedure for sending question/handling answer(s).
+ * @param question
+ * @param partyId
+ * @param socket
+ * @param redis
+ * @param io
+ * @param quizId
+ */
+const runQuestion = async (
   question: ProcessedQuestion,
   partyId: string,
   socket: Socket,
@@ -387,9 +420,8 @@ const setupQuestion = async (
   io: SocketIoServer,
   quizId: string
 ) => {
-  sendScorecard(quizId, partyId, redis, io)
   sendQuestion(question, partyId, socket, io)
-  handleAnswer(question, partyId, io, redis, quizId, question.number)
+  setupAnswerHandling(question, partyId, io, redis, quizId, question.number)
   await questionResolve(io, redis, partyId, quizId, question.number)
 
   const correctAnswerIndex = question.randomised_answers?.findIndex(
@@ -404,18 +436,16 @@ const setupQuestion = async (
  * @param partyId
  * @param resolve
  */
-const finishQuestion = (
+const postQuestionProcedure = async (
   io: SocketIoServer,
   partyId: string,
   quizId: string,
-  redis: Redis,
-  resolve: (value: void | PromiseLike<void>) => void
+  redis: Redis
 ) => {
   sendScorecard(quizId, partyId, redis, io)
-  setTimeout(() => {
-    io.in(partyId).emit("finish-question")
-    resolve()
-  }, 1500)
+
+  await asyncTimeout(1500)
+  io.in(partyId).emit("finish-question")
 }
 
 /**
@@ -454,11 +484,9 @@ export const quiz = async (
   setupQuizScoresHash(quizId, partyId, redis)
 
   // Loop through the given questions sequentially
-  for (let i = 0; i < questions.length; i++) {
-    await new Promise<void>(resolve => {
-      setupQuestion(questions[i], partyId, socket, redis, io, quizId).then(() =>
-        finishQuestion(io, partyId, quizId, redis, resolve)
-      )
-    })
+  for await (const question of questions) {
+    await preQuestionProcedure(quizId, partyId, redis, io)
+    await runQuestion(question, partyId, socket, redis, io, quizId)
+    await postQuestionProcedure(io, partyId, quizId, redis)
   }
 }
