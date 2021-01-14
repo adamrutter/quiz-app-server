@@ -35,7 +35,7 @@ interface ProcessedQuestion {
 }
 
 interface UserScore {
-  user: string
+  name: string
   id: string
   score: string
 }
@@ -370,7 +370,7 @@ const generateScorecard = async (
 
   const scorecard = Object.entries(scores).map(([userId, score]) => {
     const name = displayNames[userId]
-    return { user: name, id: userId, score }
+    return { name, id: userId, score }
   })
 
   return new Promise(resolve => {
