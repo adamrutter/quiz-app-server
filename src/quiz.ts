@@ -473,9 +473,14 @@ const postQuestionProcedure = async (
   partyId: string,
   quizId: string,
   questionNumber: number,
-  redis: Redis
+  redis: Redis,
+  questionsLength: number
 ) => {
+  const lastQuestion = questionNumber === questionsLength
+  lastQuestion && io.in(partyId).emit("quiz-will-end")
+
   sendScorecard(quizId, partyId, redis, io, questionNumber)
+
   io.in(partyId).emit("begin-post-question")
   await asyncTimeout(1500)
   io.in(partyId).emit("finish-question")
@@ -520,6 +525,13 @@ export const quiz = async (
   for await (const question of questions) {
     await preQuestionProcedure(quizId, partyId, redis, io)
     await runQuestion(question, partyId, socket, redis, io, quizId)
-    await postQuestionProcedure(io, partyId, quizId, question.number, redis)
+    await postQuestionProcedure(
+      io,
+      partyId,
+      quizId,
+      question.number,
+      redis,
+      questions.length
+    )
   }
 }
