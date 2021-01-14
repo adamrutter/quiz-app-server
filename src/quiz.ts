@@ -38,6 +38,7 @@ interface UserScore {
   name: string
   id: string
   score: string
+  answeredCorrectly?: boolean
 }
 
 /**
@@ -278,6 +279,22 @@ const allAnswersReceived = (
 }
 
 /**
+ * Record the users who answered this question correctly.
+ * @param quizId
+ * @param userId
+ * @param questionNumber
+ * @param redis
+ */
+const recordCorrectUser = (
+  quizId: string,
+  userId: string,
+  questionNumber: number,
+  redis: Redis
+) => {
+  redis.lpush(`users-answered-correctly:${quizId}_${questionNumber}`, userId)
+}
+
+/**
  * Handle receiving an answer from a client.
  *
  * Updates the user's score if correct, and emits an event to notify node.js an
@@ -302,6 +319,7 @@ const setupAnswerHandling = (
     const answerCorrect = checkAnswer(answer, question)
     if (answerCorrect) {
       updateQuizScore(userId, quizId, 1, redis)
+      recordCorrectUser(quizId, userId, question.number, redis)
     }
   }
 
@@ -363,14 +381,21 @@ const sendAmountOfQuestions = (
 const generateScorecard = async (
   quizId: string,
   partyId: string,
-  redis: Redis
+  redis: Redis,
+  questionNumber?: number
 ): Promise<Array<UserScore>> => {
   const displayNames = await redis.hgetall(`${partyId}:display-names`)
   const scores = await redis.hgetall(`score:${quizId}`)
+  const correctUsers = await redis.lrange(
+    `users-answered-correctly:${quizId}_${questionNumber}`,
+    0,
+    -1
+  )
 
   const scorecard = Object.entries(scores).map(([userId, score]) => {
     const name = displayNames[userId]
-    return { name, id: userId, score }
+    const answeredCorrectly = correctUsers.includes(userId) || undefined
+    return { name, id: userId, score, answeredCorrectly }
   })
 
   return new Promise(resolve => {
@@ -382,9 +407,15 @@ const sendScorecard = async (
   quizId: string,
   partyId: string,
   redis: Redis,
-  io: SocketIoServer
+  io: SocketIoServer,
+  questionNumber?: number
 ): Promise<void> => {
-  const scorecard = await generateScorecard(quizId, partyId, redis)
+  const scorecard = await generateScorecard(
+    quizId,
+    partyId,
+    redis,
+    questionNumber
+  )
   io.in(partyId).emit("updated-scorecard", scorecard)
 }
 
@@ -441,9 +472,10 @@ const postQuestionProcedure = async (
   io: SocketIoServer,
   partyId: string,
   quizId: string,
+  questionNumber: number,
   redis: Redis
 ) => {
-  sendScorecard(quizId, partyId, redis, io)
+  sendScorecard(quizId, partyId, redis, io, questionNumber)
 
   await asyncTimeout(1500)
   io.in(partyId).emit("finish-question")
@@ -488,6 +520,6 @@ export const quiz = async (
   for await (const question of questions) {
     await preQuestionProcedure(quizId, partyId, redis, io)
     await runQuestion(question, partyId, socket, redis, io, quizId)
-    await postQuestionProcedure(io, partyId, quizId, redis)
+    await postQuestionProcedure(io, partyId, quizId, question.number, redis)
   }
 }
