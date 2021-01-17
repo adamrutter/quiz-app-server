@@ -482,7 +482,7 @@ const postQuestionProcedure = async (
   sendScorecard(quizId, partyId, redis, io, questionNumber)
 
   io.in(partyId).emit("begin-post-question")
-  await asyncTimeout(1500)
+  await asyncTimeout(3000)
   io.in(partyId).emit("finish-question")
 }
 
