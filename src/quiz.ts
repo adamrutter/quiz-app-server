@@ -309,7 +309,11 @@ const setupAnswerHandling = (
   quizId: string,
   questionNumber: number
 ) => {
-  const answerHandler = (answer: string, partyId: string, userId: string) => {
+  const answerHandler = async (
+    answer: string,
+    partyId: string,
+    userId: string
+  ) => {
     eventEmitter.emit(
       `answer-received-${quizId}-${question.number}`,
       partyId,
@@ -321,6 +325,15 @@ const setupAnswerHandling = (
       updateQuizScore(userId, quizId, 1, redis)
       recordCorrectUser(quizId, userId, question.number, redis)
     }
+
+    const displayName = await redis.hget(`${partyId}:display-names`, userId)
+    const users = await redis.hgetall(`${partyId}:display-names`)
+    const numberOfUsers = Object.keys(users).length
+    io.in(partyId).emit(
+      "user-answered",
+      { id: userId, name: displayName },
+      numberOfUsers
+    )
   }
 
   // Set up a socket.io listener for each client
