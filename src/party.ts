@@ -2,19 +2,37 @@ import { Redis } from "ioredis"
 import { Server as SocketIoServer, Socket } from "socket.io"
 
 /**
+ * Save a key to redis denoting the party leader.
+ * @param userId
+ * @param partyId
+ * @param redis
+ */
+const assignPartyLeader = (userId: string, partyId: string, redis: Redis) => {
+  redis.set(`${partyId}:party-leader`, userId)
+}
+
+/**
  * Add a user to the requested party. Also add them to the party's scorecard.
  * @param partyId The party ID received from the client.
  * @param userId The user ID received from the client.
  * @param redis A Redis client.
  */
-export const joinParty = (
+export const joinParty = async (
   partyId: string,
   userId: string,
   redis: Redis,
   socket: Socket
-): void => {
+): Promise<void> => {
+  // If party has 0 members (ie, this is a new party), assign this member as
+  // party leader
+  const partyMembers = await redis.smembers(`${partyId}:members`)
+  if (partyMembers.length === 0) {
+    assignPartyLeader(userId, partyId, redis)
+  }
+
   redis.sadd(`${partyId}:members`, userId)
   redis.hset(`score:${partyId}`, `${userId}`, 0)
+
   socket.emit("joined-party-id", partyId)
 }
 
