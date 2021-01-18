@@ -99,5 +99,13 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
       await removePartyMember(userId, partyId, redis)
       sendListOfPartyMembers(partyId, redis, io)
     })
+
+    // Emit to all clients when the party leader chooses a category
+    socket.on(
+      "party-leader-quiz-options",
+      (options: Record<string, unknown>, partyId: string) => {
+        io.in(partyId).emit("options-changed", options)
+      }
+    )
   })
 }
