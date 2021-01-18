@@ -9,7 +9,7 @@ import {
   changeDisplayName,
   joinParty,
   removePartyMember,
-  sendAllPartyDisplayNames,
+  sendListOfPartyMembers,
   sendUserDisplayName
 } from "./party"
 
@@ -43,7 +43,7 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
       joinParty(partyId, userId, redis, socket)
       assignDisplayName(userId, partyId, redis)
         .then(() => sendUserDisplayName(userId, partyId, socket, redis))
-        .then(() => sendAllPartyDisplayNames(partyId, redis, io))
+        .then(() => sendListOfPartyMembers(partyId, redis, io))
     })
 
     // Pull questions from Open Trivia DB and send to the client
@@ -82,13 +82,13 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
       async (name: string, userId: string, partyId: string) => {
         await changeDisplayName(userId, name, partyId, redis)
         await sendUserDisplayName(userId, partyId, socket, redis)
-        sendAllPartyDisplayNames(partyId, redis, io)
+        sendListOfPartyMembers(partyId, redis, io)
       }
     )
 
     // Send party members list to client
     socket.on("request-party-members", (partyId: string) => {
-      sendAllPartyDisplayNames(partyId, redis, io)
+      sendListOfPartyMembers(partyId, redis, io)
     })
 
     // Remove a member from the party
@@ -97,7 +97,7 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
       io.in(partyId).emit("user-leaving-party", userId)
 
       await removePartyMember(userId, partyId, redis)
-      sendAllPartyDisplayNames(partyId, redis, io)
+      sendListOfPartyMembers(partyId, redis, io)
     })
   })
 }

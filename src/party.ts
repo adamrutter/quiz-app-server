@@ -87,13 +87,24 @@ export const changeDisplayName = async (
  * @param redis
  * @param io
  */
-export const sendAllPartyDisplayNames = async (
+export const sendListOfPartyMembers = async (
   partyId: string,
   redis: Redis,
   io: SocketIoServer
 ): Promise<void> => {
   const partyNamesHash = await redis.hgetall(`${partyId}:display-names`)
-  io.in(partyId).emit("party-members", partyNamesHash)
+  const partyLeader = await redis.get(`${partyId}:party-leader`)
+
+  const members = Object.entries(partyNamesHash).map(([id, name]) => {
+    const isUserPartyLeader = partyLeader === id
+    return {
+      id,
+      name,
+      leader: isUserPartyLeader
+    }
+  })
+
+  io.in(partyId).emit("party-members", members)
 }
 
 export const removePartyMember = async (
