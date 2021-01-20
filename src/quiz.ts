@@ -214,15 +214,20 @@ const sendQuestion = (
   question: ProcessedQuestion,
   partyId: string,
   socket: Socket,
-  io: SocketIoServer
+  io: SocketIoServer,
+  timeLimit: number
 ) => {
-  io.to(partyId).emit("new-question", {
-    question: question.question,
-    answers: question.randomised_answers,
-    category: question.category,
-    difficulty: question.difficulty,
-    number: question.number
-  })
+  io.to(partyId).emit(
+    "new-question",
+    {
+      question: question.question,
+      answers: question.randomised_answers,
+      category: question.category,
+      difficulty: question.difficulty,
+      number: question.number
+    },
+    timeLimit / 1000
+  )
 }
 
 /**
@@ -355,10 +360,11 @@ const questionResolve = async (
   redis: Redis,
   partyId: string,
   quizId: string,
-  questionNumber: number
+  questionNumber: number,
+  timeLimit: number
 ) => {
   await Promise.any([
-    timer(10000, io, `timer-update-${quizId}-${questionNumber}`, partyId),
+    timer(timeLimit, io, `timer-update-${quizId}-${questionNumber}`, partyId),
     allAnswersReceived(quizId, questionNumber, redis, io)
   ])
 }
@@ -465,9 +471,11 @@ const runQuestion = async (
   io: SocketIoServer,
   quizId: string
 ) => {
-  sendQuestion(question, partyId, socket, io)
+  const timeLimit = 20000
+
+  sendQuestion(question, partyId, socket, io, timeLimit)
   setupAnswerHandling(question, partyId, io, redis, quizId, question.number)
-  await questionResolve(io, redis, partyId, quizId, question.number)
+  await questionResolve(io, redis, partyId, quizId, question.number, timeLimit)
 
   const correctAnswerIndex = question.randomised_answers?.findIndex(
     el => el === question.correct_answer
