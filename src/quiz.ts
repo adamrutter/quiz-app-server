@@ -93,6 +93,12 @@ export const getQuestions = async (
       data: { results: questions }
     } = await axios.get(apiQuery)
 
+    if (questions.length === 0) {
+      throw new Error(
+        "Could not find enough questions. Try changing the options you selected"
+      )
+    }
+
     return processQuestions(questions)
   } catch (err) {
     throw new Error(err)

@@ -1,3 +1,4 @@
+import { emitErrorMessageToSocket } from "./util"
 import { Express } from "express"
 import { getQuestions, quiz, allUsersReady } from "./quiz"
 import { Redis } from "ioredis"
@@ -56,21 +57,25 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
       // Wait for all users to confirm they are ready
       await allUsersReady(io, redis, partyId)
 
-      // Send the ID for the new quiz to all clients
-      const quizId = uuidv4()
-      io.to(partyId).emit("new-quiz-id", quizId)
+      try {
+        // Get questions using the given options
+        const options = {
+          amount: amount || "",
+          category: category || "",
+          difficulty: difficulty || "",
+          type: type || ""
+        }
+        const questions = await getQuestions(options)
 
-      // Get questions using the given options
-      const options = {
-        amount: amount || "",
-        category: category || "",
-        difficulty: difficulty || "",
-        type: type || ""
+        // Send the ID for the new quiz to all clients
+        const quizId = uuidv4()
+        io.to(partyId).emit("new-quiz-id", quizId)
+
+        // Run the quiz, and await its finish
+        await quiz(questions, partyId, socket, redis, io, quizId)
+      } catch (err) {
+        emitErrorMessageToSocket(err.message, socket)
       }
-      const questions = await getQuestions(options)
-
-      // Run the quiz, and await its finish
-      await quiz(questions, partyId, socket, redis, io, quizId)
 
       // Tell clients the quiz has finished
       io.to(partyId).emit("quiz-finished")
