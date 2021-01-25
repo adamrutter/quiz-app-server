@@ -115,7 +115,9 @@ const timer = (
   timeout: number,
   io: SocketIoServer,
   event: string,
-  partyId: string
+  partyId: string,
+  quizId: string,
+  questionNumber: number
 ): Promise<void> => {
   return new Promise<void>(resolve => {
     let secondsLeft = timeout / 1000
@@ -132,6 +134,13 @@ const timer = (
 
       io.in(partyId).emit(event, secondsLeft)
     }, 1000)
+
+    eventEmitter.once(
+      `all-answers-received-${quizId}-${questionNumber}`,
+      () => {
+        clearInterval(time)
+      }
+    )
   })
 }
 
@@ -370,7 +379,14 @@ const questionResolve = async (
   timeLimit: number
 ) => {
   await Promise.any([
-    timer(timeLimit, io, `timer-update-${quizId}-${questionNumber}`, partyId),
+    timer(
+      timeLimit,
+      io,
+      `timer-update-${quizId}-${questionNumber}`,
+      partyId,
+      quizId,
+      questionNumber
+    ),
     allAnswersReceived(quizId, questionNumber, redis, io)
   ])
 }
