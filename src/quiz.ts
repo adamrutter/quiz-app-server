@@ -40,7 +40,7 @@ interface ProcessedQuestion {
 interface UserScore {
   name: string
   id: string
-  score: string
+  score: number
   answeredCorrectly?: boolean
 }
 
@@ -444,11 +444,13 @@ const generateScorecard = async (
   const scorecard = Object.entries(scores).map(([userId, score]) => {
     const name = displayNames[userId]
     const answeredCorrectly = correctUsers.includes(userId) || undefined
-    return { name, id: userId, score, answeredCorrectly }
+    return { name, id: userId, score: parseInt(score), answeredCorrectly }
   })
 
+  const orderedScorecard = scorecard.sort((a, b) => b.score - a.score)
+
   return new Promise(resolve => {
-    resolve(scorecard)
+    resolve(orderedScorecard)
   })
 }
 
