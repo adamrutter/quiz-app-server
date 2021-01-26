@@ -1,10 +1,11 @@
+import { config } from "./config"
+import { customAlphabet } from "nanoid"
 import { emitErrorMessageToSocket } from "./util"
 import { Express } from "express"
 import { getQuestions, quiz, allUsersReady } from "./quiz"
 import { Redis } from "ioredis"
 import { Server as HttpServer } from "http"
 import { Server as SocketIoServer, Socket } from "socket.io"
-import { v4 as uuidv4 } from "uuid"
 import {
   assignDisplayName,
   changeDisplayName,
@@ -13,6 +14,12 @@ import {
   sendListOfPartyMembers,
   sendUserDisplayName
 } from "./party"
+
+const { nanoidAlphabet } = config
+const nanoid = (length: number) => {
+  const id = customAlphabet(nanoidAlphabet, length)
+  return id()
+}
 
 export const setupSocketIO = (server: HttpServer, app: Express): void => {
   const io = new SocketIoServer(server, {
@@ -28,13 +35,13 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
     // Request the creation of a new party
     // Emit back to the client the id of the new party
     socket.on("request-new-party", () => {
-      const partyId = uuidv4()
+      const partyId = nanoid(7)
       socket.emit("new-party-id", partyId)
     })
 
     // Request a user id
     socket.on("request-user-id", () => {
-      const userId = uuidv4()
+      const userId = nanoid(10)
       socket.emit("new-user-id", userId)
     })
 
@@ -68,7 +75,7 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
         const questions = await getQuestions(options)
 
         // Send the ID for the new quiz to all clients
-        const quizId = uuidv4()
+        const quizId = nanoid(10)
         io.to(partyId).emit("new-quiz-id", quizId)
 
         // Run the quiz, and await its finish
