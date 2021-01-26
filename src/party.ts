@@ -1,5 +1,8 @@
 import { Redis } from "ioredis"
+import { config } from "./config"
 import { Server as SocketIoServer, Socket } from "socket.io"
+
+const { redisExpireTime } = config
 
 /**
  * Save a key to redis denoting the party leader.
@@ -9,6 +12,7 @@ import { Server as SocketIoServer, Socket } from "socket.io"
  */
 const assignPartyLeader = (userId: string, partyId: string, redis: Redis) => {
   redis.set(`${partyId}:party-leader`, userId)
+  redis.expire(`${partyId}:party-leader`, redisExpireTime)
 }
 
 /**
@@ -31,7 +35,9 @@ export const joinParty = async (
   }
 
   redis.sadd(`${partyId}:members`, userId)
+  redis.expire(`${partyId}:members`, redisExpireTime)
   redis.hset(`score:${partyId}`, `${userId}`, 0)
+  redis.expire(`score:${partyId}`, redisExpireTime)
 
   socket.emit("joined-party-id", partyId)
 }
@@ -64,6 +70,7 @@ export const assignDisplayName = async (
   )
   const name = existingDisplayName || `user_${userId?.substring(0, 3)}`
   await redis.hset(`${partyId}:display-names`, userId, name)
+  redis.expire(`${partyId}:display-names`, redisExpireTime)
 }
 
 /**
@@ -79,6 +86,7 @@ export const changeDisplayName = async (
   redis: Redis
 ): Promise<void> => {
   await redis.hset(`${partyId}:display-names`, userId, name)
+  redis.expire(`${partyId}:display-names`, redisExpireTime)
 }
 
 /**

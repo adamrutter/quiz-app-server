@@ -1,9 +1,12 @@
 import { clearInterval } from "timers"
 import { EventEmitter } from "events"
 import { Redis } from "ioredis"
+import { config } from "./config"
 import { Socket, Server as SocketIoServer } from "socket.io"
 import axios from "axios"
 import shuffle from "shuffle-array"
+
+const { redisExpireTime } = config
 
 const eventEmitter = new EventEmitter()
 
@@ -257,6 +260,7 @@ const listenForAllAnswers = (
     const numberOfAnswers = await redis.incr(
       `${quizId}:${questionNumber}:answers`
     )
+    redis.expire(`${quizId}:${questionNumber}:answers`, redisExpireTime)
     const allPartyMembers = await redis.smembers(`${partyId}:members`)
     const numberOfPartyMembers = allPartyMembers.length
 
@@ -312,6 +316,10 @@ const recordCorrectUser = (
   redis: Redis
 ) => {
   redis.lpush(`users-answered-correctly:${quizId}_${questionNumber}`, userId)
+  redis.expire(
+    `users-answered-correctly:${quizId}_${questionNumber}`,
+    redisExpireTime
+  )
 }
 
 /**
@@ -542,6 +550,7 @@ const setupQuizScoresHash = async (
 ): Promise<void> => {
   const users = await redis.smembers(`${partyId}:members`)
   users.forEach(user => redis.hset(`score:${quizId}`, user, 0))
+  redis.expire(`score:${quizId}`, redisExpireTime)
 }
 
 /**
