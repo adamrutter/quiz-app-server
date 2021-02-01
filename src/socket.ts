@@ -25,7 +25,7 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
   const io = new SocketIoServer(server, {
     // Allow cross origin request from client sub-domain
     cors: {
-      origin: process.env.CLIENT_URL
+      origin: "*"
     }
   })
 
