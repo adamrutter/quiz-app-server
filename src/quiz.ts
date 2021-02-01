@@ -501,10 +501,9 @@ const runQuestion = async (
   socket: Socket,
   redis: Redis,
   io: SocketIoServer,
-  quizId: string
+  quizId: string,
+  timeLimit: number
 ) => {
-  const timeLimit = 20000
-
   sendQuestion(question, partyId, socket, io, timeLimit)
   setupAnswerHandling(question, partyId, io, redis, quizId, question.number)
   await questionResolve(io, redis, partyId, quizId, question.number, timeLimit)
@@ -567,7 +566,8 @@ export const quiz = async (
   socket: Socket,
   redis: Redis,
   io: SocketIoServer,
-  quizId: string
+  quizId: string,
+  questionTimeout: number
 ): Promise<void> => {
   // Send amount of questions to client
   sendAmountOfQuestions(questions.length, io, partyId)
@@ -578,7 +578,15 @@ export const quiz = async (
   // Loop through the given questions sequentially
   for await (const question of questions) {
     await preQuestionProcedure(quizId, partyId, redis, io)
-    await runQuestion(question, partyId, socket, redis, io, quizId)
+    await runQuestion(
+      question,
+      partyId,
+      socket,
+      redis,
+      io,
+      quizId,
+      questionTimeout
+    )
     await postQuestionProcedure(
       io,
       partyId,

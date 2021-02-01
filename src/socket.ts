@@ -58,8 +58,9 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
     socket.on("start-quiz", async arg => {
       const {
         partyId,
-        options: { amount, category, difficulty, type }
+        options: { amount, category, difficulty, type, time }
       } = arg
+      const questionTimeout = parseInt(time) * 1000
 
       // Wait for all users to confirm they are ready
       await allUsersReady(io, redis, partyId)
@@ -79,7 +80,15 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
         io.to(partyId).emit("new-quiz-id", quizId)
 
         // Run the quiz, and await its finish
-        await quiz(questions, partyId, socket, redis, io, quizId)
+        await quiz(
+          questions,
+          partyId,
+          socket,
+          redis,
+          io,
+          quizId,
+          questionTimeout
+        )
       } catch (err) {
         emitErrorMessageToSocket(err.message, socket)
       }
