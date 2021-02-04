@@ -5,7 +5,8 @@ require("dotenv").config() // eslint-disable-line @typescript-eslint/no-var-requ
 export const setupRedis = (): RedisType => {
   const redis = new Redis({
     host: process.env.REDIS_HOST,
-    port: Number(process.env.REDIS_PORT) || 6379
+    port: Number(process.env.REDIS_PORT) || 6379,
+    password: process.env.REDIS_PASSWORD || ""
   })
 
   redis.on("error", error => {
