@@ -22,111 +22,117 @@ const nanoid = (length: number) => {
 }
 
 export const setupSocketIO = (server: HttpServer, app: Express): void => {
-  const io = new SocketIoServer(server, {
-    // Allow cross origin request from client sub-domain
-    cors: {
-      origin: "*"
-    }
-  })
-
-  const redis: Redis = app.get("redis")
-
-  io.on("connect", (socket: Socket) => {
-    // Request the creation of a new party
-    // Emit back to the client the id of the new party
-    socket.on("request-new-party", () => {
-      const partyId = nanoid(7)
-      socket.emit("new-party-id", partyId)
+  try {
+    const io = new SocketIoServer(server, {
+      // Allow cross origin request from client sub-domain
+      cors: {
+        origin: "*"
+      }
     })
 
-    // Request a user id
-    socket.on("request-user-id", () => {
-      const userId = nanoid(10)
-      socket.emit("new-user-id", userId)
-    })
+    const redis: Redis = app.get("redis")
 
-    // Join an already existing party
-    socket.on("join-party", async (partyId: string, userId: string) => {
-      socket.join(partyId)
-      joinParty(partyId, userId, redis, socket)
-      assignDisplayName(userId, partyId, redis)
-        .then(() => sendUserDisplayName(userId, partyId, socket, redis))
-        .then(() => sendListOfPartyMembers(partyId, redis, io))
-    })
+    io.on("connect", (socket: Socket) => {
+      // Request the creation of a new party
+      // Emit back to the client the id of the new party
+      socket.on("request-new-party", () => {
+        const partyId = nanoid(7)
+        socket.emit("new-party-id", partyId)
+      })
 
-    // Pull questions from Open Trivia DB and send to the client
-    socket.on("start-quiz", async arg => {
-      const {
-        partyId,
-        options: { amount, category, difficulty, type, time }
-      } = arg
-      const questionTimeout = parseInt(time) * 1000
+      // Request a user id
+      socket.on("request-user-id", () => {
+        const userId = nanoid(10)
+        socket.emit("new-user-id", userId)
+      })
 
-      // Wait for all users to confirm they are ready
-      await allUsersReady(io, redis, partyId)
+      // Join an already existing party
+      socket.on("join-party", async (partyId: string, userId: string) => {
+        socket.join(partyId)
+        joinParty(partyId, userId, redis, socket)
+        assignDisplayName(userId, partyId, redis)
+          .then(() => sendUserDisplayName(userId, partyId, socket, redis))
+          .then(() => sendListOfPartyMembers(partyId, redis, io))
+      })
 
-      try {
-        // Get questions using the given options
-        const options = {
-          amount: amount || "",
-          category: category || "",
-          difficulty: difficulty || "",
-          type: type || ""
-        }
-        const questions = await getQuestions(options)
-
-        // Send the ID for the new quiz to all clients
-        const quizId = nanoid(10)
-        io.to(partyId).emit("new-quiz-id", quizId)
-
-        // Run the quiz, and await its finish
-        await quiz(
-          questions,
+      // Pull questions from Open Trivia DB and send to the client
+      socket.on("start-quiz", async arg => {
+        const {
           partyId,
-          socket,
-          redis,
-          io,
-          quizId,
-          questionTimeout
-        )
-      } catch (err) {
-        emitErrorMessageToSocket(err.message, socket)
-      }
+          options: { amount, category, difficulty, type, time }
+        } = arg
+        const questionTimeout = parseInt(time) * 1000
 
-      // Tell clients the quiz has finished
-      io.to(partyId).emit("quiz-finished")
-    })
+        // Wait for all users to confirm they are ready
+        await allUsersReady(io, redis, partyId)
 
-    // Update a user's display name
-    socket.on(
-      "change-display-name",
-      async (name: string, userId: string, partyId: string) => {
-        await changeDisplayName(userId, name, partyId, redis)
-        await sendUserDisplayName(userId, partyId, socket, redis)
+        try {
+          // Get questions using the given options
+          const options = {
+            amount: amount || "",
+            category: category || "",
+            difficulty: difficulty || "",
+            type: type || ""
+          }
+          const questions = await getQuestions(options)
+
+          // Send the ID for the new quiz to all clients
+          const quizId = nanoid(10)
+          io.to(partyId).emit("new-quiz-id", quizId)
+
+          // Run the quiz, and await its finish
+          await quiz(
+            questions,
+            partyId,
+            socket,
+            redis,
+            io,
+            quizId,
+            questionTimeout
+          )
+        } catch (err) {
+          emitErrorMessageToSocket(err.message, socket)
+        }
+
+        // Tell clients the quiz has finished
+        io.to(partyId).emit("quiz-finished")
+      })
+
+      // Update a user's display name
+      socket.on(
+        "change-display-name",
+        async (name: string, userId: string, partyId: string) => {
+          await changeDisplayName(userId, name, partyId, redis)
+          await sendUserDisplayName(userId, partyId, socket, redis)
+          sendListOfPartyMembers(partyId, redis, io)
+        }
+      )
+
+      // Send party members list to client
+      socket.on("request-party-members", (partyId: string) => {
         sendListOfPartyMembers(partyId, redis, io)
-      }
-    )
+      })
 
-    // Send party members list to client
-    socket.on("request-party-members", (partyId: string) => {
-      sendListOfPartyMembers(partyId, redis, io)
-    })
-
-    // Remove a member from the party
+      // Remove a member from the party
     socket.on("kick-party-member", async (userId: string, partyId: string) => {
-      // Tell clients which user is being removed from the party
-      io.in(partyId).emit("user-leaving-party", userId)
+          // Tell clients which user is being removed from the party
+          io.in(partyId).emit("user-leaving-party", userId)
 
-      await removePartyMember(userId, partyId, redis)
-      sendListOfPartyMembers(partyId, redis, io)
+          await removePartyMember(userId, partyId, redis)
+          sendListOfPartyMembers(partyId, redis, io)
     })
 
-    // Emit to all clients when the party leader chooses a category
-    socket.on(
-      "party-leader-quiz-options",
-      (options: Record<string, unknown>, partyId: string) => {
-        io.in(partyId).emit("options-changed", options)
-      }
-    )
-  })
+      // Emit to all clients when the party leader chooses a category
+      socket.on(
+        "party-leader-quiz-options",
+        (options: Record<string, unknown>, partyId: string) => {
+          io.in(partyId).emit("options-changed", options)
+        }
+      )
+    })
+
+    console.log("Socket.IO ready")
+  } catch (err) {
+    console.log(err)
+  }
 }
