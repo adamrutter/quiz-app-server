@@ -3,7 +3,10 @@
   "private": true,
   "scripts": {
     "build": "tsc",
-    "start": "nodemon src/app.ts"
+    "deploy": "git push heroku master",
+    "dev": "nodemon src/app.ts",
+    "postinstall": "npm run build",
+    "start": "node build/app.js"
   },
   "dependencies": {
     "axios": "^0.21.0",
@@ -27,5 +30,9 @@
     "nodemon": "^2.0.6",
     "ts-node": "^9.1.0",
     "typescript": "^4.1.2"
+  },
+  "engines": {
+    "node": "15.7.0",
+    "npm": "6.14.11"
   }
 }
