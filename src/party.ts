@@ -124,3 +124,12 @@ export const removePartyMember = async (
   redis.hdel(`score:${partyId}`, userId)
   redis.hdel(`${partyId}:display-names`, userId)
 }
+
+export const doesPartyExist = async (
+  partyId: string,
+  redis: Redis
+): Promise<boolean> => {
+  const partyMembers = await redis.smembers(`${partyId}:members`)
+  const partyExists = partyMembers.length > 0
+  return partyExists
+}

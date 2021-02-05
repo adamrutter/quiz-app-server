@@ -9,6 +9,7 @@ import { Server as SocketIoServer, Socket } from "socket.io"
 import {
   assignDisplayName,
   changeDisplayName,
+  doesPartyExist,
   joinParty,
   removePartyMember,
   sendListOfPartyMembers,
@@ -129,6 +130,12 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
           io.in(partyId).emit("options-changed", options)
         }
       )
+
+      // Verify whether the given party exists
+      socket.on("does-party-exist", async (partyId: string) => {
+        const exists = await doesPartyExist(partyId, redis)
+        socket.emit("party-exists", exists)
+      })
     })
 
     console.log("Socket.IO ready")
