@@ -35,10 +35,10 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
 
     io.on("connect", (socket: Socket) => {
       // Request the creation of a new party
-      // Emit back to the client the id of the new party
-      socket.on("request-new-party", () => {
+      socket.on("request-new-party", (userId: string) => {
         const partyId = nanoid(7)
-        socket.emit("new-party-id", partyId)
+        socket.join(partyId)
+        joinParty(partyId, userId, redis, socket, io)
       })
 
       // Request a user id
@@ -50,10 +50,7 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
       // Join an already existing party
       socket.on("join-party", async (partyId: string, userId: string) => {
         socket.join(partyId)
-        joinParty(partyId, userId, redis, socket)
-        assignDisplayName(userId, partyId, redis)
-          .then(() => sendUserDisplayName(userId, partyId, socket, redis))
-          .then(() => sendListOfPartyMembers(partyId, redis, io))
+        joinParty(partyId, userId, redis, socket, io)
       })
 
       // Pull questions from Open Trivia DB and send to the client
@@ -115,13 +112,16 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
       })
 
       // Remove a member from the party
-    socket.on("kick-party-member", async (userId: string, partyId: string) => {
+      socket.on(
+        "kick-party-member",
+        async (userId: string, partyId: string) => {
           // Tell clients which user is being removed from the party
           io.in(partyId).emit("user-leaving-party", userId)
 
           await removePartyMember(userId, partyId, redis)
           sendListOfPartyMembers(partyId, redis, io)
-    })
+        }
+      )
 
       // Emit to all clients when the party leader chooses a category
       socket.on(

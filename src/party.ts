@@ -25,7 +25,8 @@ export const joinParty = async (
   partyId: string,
   userId: string,
   redis: Redis,
-  socket: Socket
+  socket: Socket,
+  io: SocketIoServer
 ): Promise<void> => {
   // If party has 0 members (ie, this is a new party), assign this member as
   // party leader
@@ -38,6 +39,10 @@ export const joinParty = async (
   redis.expire(`${partyId}:members`, redisExpireTime)
   redis.hset(`score:${partyId}`, `${userId}`, 0)
   redis.expire(`score:${partyId}`, redisExpireTime)
+
+  assignDisplayName(userId, partyId, redis)
+    .then(() => sendUserDisplayName(userId, partyId, socket, redis))
+    .then(() => sendListOfPartyMembers(partyId, redis, io))
 
   socket.emit("joined-party-id", partyId)
 }
