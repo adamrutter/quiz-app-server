@@ -10,6 +10,7 @@ import {
   assignDisplayName,
   changeDisplayName,
   doesPartyExist,
+  getDisplayName,
   joinParty,
   removePartyMember,
   sendListOfPartyMembers,
@@ -116,7 +117,11 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
         "kick-party-member",
         async (userId: string, partyId: string) => {
           // Tell clients which user is being removed from the party
-          io.in(partyId).emit("user-leaving-party", userId)
+          const user = {
+            id: userId,
+            name: await getDisplayName(userId, partyId, redis)
+          }
+          io.in(partyId).emit("user-leaving-party", user)
 
           await removePartyMember(userId, partyId, redis)
           sendListOfPartyMembers(partyId, redis, io)

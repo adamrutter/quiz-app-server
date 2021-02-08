@@ -138,3 +138,17 @@ export const doesPartyExist = async (
   const partyExists = partyMembers.length > 0
   return partyExists
 }
+
+export const getDisplayName = async (
+  userId: string,
+  partyId: string,
+  redis: Redis
+): Promise<string | undefined> => {
+  const partyNamesHash = await redis.hgetall(`${partyId}:display-names`)
+  const requestedUser = Object.entries(partyNamesHash).find(
+    ([id]) => id === userId
+  )
+  const requestedDisplayName = requestedUser?.[1]
+
+  return requestedDisplayName
+}
