@@ -1,8 +1,26 @@
 import { Redis } from "ioredis"
 import { config } from "./config"
 import { Server as SocketIoServer, Socket } from "socket.io"
+import {
+  uniqueNamesGenerator,
+  Config,
+  adjectives,
+  animals
+} from "unique-names-generator"
 
 const { redisExpireTime } = config
+
+/**
+ * Generate a default display name
+ */
+const generateDefaultDisplayName = () => {
+  const config: Config = {
+    dictionaries: [adjectives, animals]
+  }
+
+  const name = uniqueNamesGenerator(config)
+  return name
+}
 
 /**
  * Save a key to redis denoting the party leader.
@@ -73,7 +91,7 @@ export const assignDisplayName = async (
     `${partyId}:display-names`,
     userId
   )
-  const name = existingDisplayName || `user_${userId?.substring(0, 3)}`
+  const name = existingDisplayName || generateDefaultDisplayName()
   await redis.hset(`${partyId}:display-names`, userId, name)
   redis.expire(`${partyId}:display-names`, redisExpireTime)
 }
