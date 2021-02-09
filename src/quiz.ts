@@ -229,7 +229,8 @@ const sendQuestion = (
   partyId: string,
   socket: Socket,
   io: SocketIoServer,
-  timeLimit: number
+  timeLimit: number,
+  total: number
 ) => {
   io.to(partyId).emit(
     "new-question",
@@ -238,7 +239,8 @@ const sendQuestion = (
       answers: question.randomised_answers,
       category: question.category,
       difficulty: question.difficulty,
-      number: question.number
+      number: question.number,
+      total
     },
     timeLimit / 1000
   )
@@ -416,20 +418,6 @@ const sendCorrectAnswerIndex = (
   io.in(partyId).emit("correct-answer", correctAnswerIndex)
 }
 
-/**
- * Send the total amount of questions to the client.
- * @param amountOfQuestions The total amount of questions.
- * @param io The socket.io server.
- * @param partyId The party ID from the client.
- */
-const sendAmountOfQuestions = (
-  amountOfQuestions: number,
-  io: SocketIoServer,
-  partyId: string
-): void => {
-  io.in(partyId).emit("amount-of-questions", amountOfQuestions)
-}
-
 const generateScorecard = async (
   quizId: string,
   partyId: string,
@@ -498,6 +486,7 @@ const preQuestionProcedure = async (
  * @param io
  * @param quizId
  * @param eventEmitter
+ * @param total
  */
 const runQuestion = async (
   question: ProcessedQuestion,
@@ -507,9 +496,10 @@ const runQuestion = async (
   io: SocketIoServer,
   quizId: string,
   timeLimit: number,
-  eventEmitter: EventEmitter
+  eventEmitter: EventEmitter,
+  total: number
 ) => {
-  sendQuestion(question, partyId, socket, io, timeLimit)
+  sendQuestion(question, partyId, socket, io, timeLimit, total)
   setupAnswerHandling(
     question,
     partyId,
@@ -592,9 +582,6 @@ export const quiz = async (
   questionTimeout: number,
   eventEmitter: EventEmitter
 ): Promise<void> => {
-  // Send amount of questions to client
-  sendAmountOfQuestions(questions.length, io, partyId)
-
   // Set up a scoreboard
   setupQuizScoresHash(quizId, partyId, redis)
 
@@ -609,7 +596,8 @@ export const quiz = async (
       io,
       quizId,
       questionTimeout,
-      eventEmitter
+      eventEmitter,
+      questions.length
     )
     await postQuestionProcedure(
       io,
