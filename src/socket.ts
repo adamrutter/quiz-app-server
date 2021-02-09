@@ -42,12 +42,6 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
         joinParty(partyId, userId, redis, socket, io)
       })
 
-      // Request a user id
-      socket.on("request-user-id", () => {
-        const userId = nanoid(10)
-        socket.emit("new-user-id", userId)
-      })
-
       // Join an already existing party
       socket.on("join-party", async (partyId: string, userId: string) => {
         socket.join(partyId)
