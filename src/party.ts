@@ -123,11 +123,21 @@ export const sendListOfPartyMembers = async (
 export const removePartyMember = async (
   userId: string,
   partyId: string,
-  redis: Redis
+  redis: Redis,
+  io: SocketIoServer
 ): Promise<void> => {
+  // Tell clients which user has left the party
+  const user = {
+    id: userId,
+    name: await getDisplayName(userId, partyId, redis)
+  }
+  io.in(partyId).emit("user-leaving-party", user)
+
   redis.srem(`${partyId}:members`, userId)
   redis.hdel(`score:${partyId}`, userId)
-  redis.hdel(`${partyId}:display-names`, userId)
+  await redis.hdel(`${partyId}:display-names`, userId)
+
+  sendListOfPartyMembers(partyId, redis, io)
 }
 
 export const doesPartyExist = async (

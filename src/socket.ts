@@ -10,7 +10,6 @@ import {
   assignDisplayName,
   changeDisplayName,
   doesPartyExist,
-  getDisplayName,
   joinParty,
   removePartyMember,
   sendListOfPartyMembers,
@@ -107,19 +106,8 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
       })
 
       // Remove a member from the party
-      socket.on(
-        "kick-party-member",
-        async (userId: string, partyId: string) => {
-          // Tell clients which user is being removed from the party
-          const user = {
-            id: userId,
-            name: await getDisplayName(userId, partyId, redis)
-          }
-          io.in(partyId).emit("user-leaving-party", user)
-
-          await removePartyMember(userId, partyId, redis)
-          sendListOfPartyMembers(partyId, redis, io)
-        }
+      socket.on("kick-party-member", async (userId: string, partyId: string) =>
+        removePartyMember(userId, partyId, redis, io)
       )
 
       // Emit to all clients when the party leader chooses a category
@@ -134,6 +122,13 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
       socket.on("does-party-exist", async (partyId: string) => {
         const exists = await doesPartyExist(partyId, redis)
         socket.emit("party-exists", exists)
+      })
+
+      // Remove user from party when socket disconnects
+      socket.on("disconnecting", () => {
+        const userId = socket.id
+        const partyId = Array.from(socket.rooms)[1]
+        removePartyMember(userId, partyId, redis, io)
       })
     })
 
