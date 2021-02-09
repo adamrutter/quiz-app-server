@@ -1,3 +1,4 @@
+import { EventEmitter } from "events"
 import { setupRedis } from "./redis"
 import { setupSocketIO } from "./socket"
 import express from "express"
@@ -8,6 +9,7 @@ require("dotenv").config() // eslint-disable-line @typescript-eslint/no-var-requ
 const port = process.env.PORT || 5000
 const app = express()
 const server = new http.Server(app)
+const eventEmitter = new EventEmitter()
 
 // Allow cross origin request
 app.use((req, res, next) => {
@@ -21,6 +23,7 @@ app.get("/", (req, res) => res.send("Server is listening..."))
 // Setup
 const redis = setupRedis()
 app.set("redis", redis)
+app.set("eventEmitter", eventEmitter)
 
 setupSocketIO(server, app)
 

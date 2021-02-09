@@ -1,5 +1,6 @@
 import { Redis } from "ioredis"
 import { config } from "./config"
+import { EventEmitter } from "events"
 import { Server as SocketIoServer, Socket } from "socket.io"
 import {
   uniqueNamesGenerator,
@@ -7,6 +8,7 @@ import {
   adjectives,
   animals
 } from "unique-names-generator"
+import { User } from "./types"
 
 const { redisExpireTime } = config
 
@@ -38,13 +40,16 @@ const assignPartyLeader = (userId: string, partyId: string, redis: Redis) => {
  * @param partyId The party ID received from the client.
  * @param userId The user ID received from the client.
  * @param redis A Redis client.
+ * @param io
+ * @param eventEmitter
  */
 export const joinParty = async (
   partyId: string,
   userId: string,
   redis: Redis,
   socket: Socket,
-  io: SocketIoServer
+  io: SocketIoServer,
+  eventEmitter: EventEmitter
 ): Promise<void> => {
   // If party has 0 members (ie, this is a new party), assign this member as
   // party leader
@@ -63,6 +68,11 @@ export const joinParty = async (
     .then(() => sendListOfPartyMembers(partyId, redis, io))
 
   socket.emit("joined-party-id", partyId)
+
+  // Listen for party user ready to start quiz
+  socket.on("user-ready", (user: User) =>
+    eventEmitter.emit(`${partyId}-user-ready`, user)
+  )
 }
 
 export const sendUserDisplayName = async (

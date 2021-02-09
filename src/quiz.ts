@@ -3,12 +3,12 @@ import { EventEmitter } from "events"
 import { Redis } from "ioredis"
 import { config } from "./config"
 import { Socket, Server as SocketIoServer } from "socket.io"
+import { User } from "./types"
 import axios from "axios"
 import shuffle from "shuffle-array"
+import { getDisplayName } from "./party"
 
 const { redisExpireTime } = config
-
-const eventEmitter = new EventEmitter()
 
 export interface QuizOptions {
   amount?: string
@@ -120,7 +120,8 @@ const timer = (
   event: string,
   partyId: string,
   quizId: string,
-  questionNumber: number
+  questionNumber: number,
+  eventEmitter: EventEmitter
 ): Promise<void> => {
   return new Promise<void>(resolve => {
     let secondsLeft = timeout / 1000
@@ -184,44 +185,39 @@ const updateQuizScore = async (
  *
  * Returns a promise that resolves when all users in the room have confirmed
  * they are ready.
- * @param socket The socket of the user who emitted the 'start-quiz' event.
  * @param io The socket.io server.
  * @param redis A Redis client.
  * @param partyId The party ID.
+ * @param eventEmitter
  */
 export const allUsersReady = async (
   io: SocketIoServer,
   redis: Redis,
-  partyId: string
+  partyId: string,
+  eventEmitter: EventEmitter
 ): Promise<void> => {
-  const usersReady: Array<string> = []
+  const party = io.in(partyId)
+  const allUsers = await redis.smembers(`${partyId}:members`)
+  const usersReady: User[] = []
 
-  io.to(partyId).emit("ready-prompt")
+  party.emit("ready-prompt")
 
-  const listenForReady = async (
-    socket: Socket,
-    resolve: (value: void | PromiseLike<void>) => void
-  ) => {
-    const allUsers = await redis.smembers(`${partyId}:members`)
-
-    socket.once("user-ready", async ({ userId, partyId }) => {
-      !usersReady.includes(userId) && usersReady.push(userId)
+  return new Promise(resolve => {
+    const listener = async (user: { userId: string; partyId: string }) => {
+      const name = await getDisplayName(user.userId, partyId, redis)
+      usersReady.push({ id: user.userId, name })
 
       if (usersReady.length === allUsers.length) {
-        io.to(partyId).emit("all-users-ready")
+        party.emit("all-users-ready")
+        eventEmitter.off(`${partyId}-user-ready`, listener)
         resolve()
       } else {
         const percentUsersReady = (usersReady.length / allUsers.length) * 100
-        socket.emit("these-users-ready", usersReady)
-        socket.emit("percent-users-ready", percentUsersReady)
+        party.emit("percent-users-ready", percentUsersReady)
+        party.emit("these-users-ready", usersReady)
       }
-    })
-  }
-
-  return new Promise(resolve => {
-    io.in(partyId).sockets.sockets.forEach(socket =>
-      listenForReady(socket, resolve)
-    )
+    }
+    eventEmitter.on(`${partyId}-user-ready`, listener)
   })
 }
 
@@ -254,7 +250,8 @@ const sendQuestion = (
 const listenForAllAnswers = (
   redis: Redis,
   quizId: string,
-  questionNumber: number
+  questionNumber: number,
+  eventEmitter: EventEmitter
 ) => {
   const listener = async (partyId: string) => {
     const numberOfAnswers = await redis.incr(
@@ -278,14 +275,16 @@ const listenForAllAnswers = (
  * @param questionNumber
  * @param redis
  * @param io
+ * @param eventEmitter
  */
 const allAnswersReceived = (
   quizId: string,
   questionNumber: number,
   redis: Redis,
-  io: SocketIoServer
+  io: SocketIoServer,
+  eventEmitter: EventEmitter
 ) => {
-  listenForAllAnswers(redis, quizId, questionNumber)
+  listenForAllAnswers(redis, quizId, questionNumber, eventEmitter)
 
   return new Promise<void>(resolve => {
     eventEmitter.once(
@@ -335,7 +334,8 @@ const setupAnswerHandling = (
   io: SocketIoServer,
   redis: Redis,
   quizId: string,
-  questionNumber: number
+  questionNumber: number,
+  eventEmitter: EventEmitter
 ) => {
   const answerHandler = async (
     answer: string,
@@ -377,6 +377,7 @@ const setupAnswerHandling = (
  * @param partyId
  * @param quizId
  * @param questionNumber
+ * @param eventEmitter
  */
 const questionResolve = async (
   io: SocketIoServer,
@@ -384,7 +385,8 @@ const questionResolve = async (
   partyId: string,
   quizId: string,
   questionNumber: number,
-  timeLimit: number
+  timeLimit: number,
+  eventEmitter: EventEmitter
 ) => {
   await Promise.any([
     timer(
@@ -393,9 +395,10 @@ const questionResolve = async (
       `timer-update-${quizId}-${questionNumber}`,
       partyId,
       quizId,
-      questionNumber
+      questionNumber,
+      eventEmitter
     ),
-    allAnswersReceived(quizId, questionNumber, redis, io)
+    allAnswersReceived(quizId, questionNumber, redis, io, eventEmitter)
   ])
 }
 
@@ -494,6 +497,7 @@ const preQuestionProcedure = async (
  * @param redis
  * @param io
  * @param quizId
+ * @param eventEmitter
  */
 const runQuestion = async (
   question: ProcessedQuestion,
@@ -502,11 +506,28 @@ const runQuestion = async (
   redis: Redis,
   io: SocketIoServer,
   quizId: string,
-  timeLimit: number
+  timeLimit: number,
+  eventEmitter: EventEmitter
 ) => {
   sendQuestion(question, partyId, socket, io, timeLimit)
-  setupAnswerHandling(question, partyId, io, redis, quizId, question.number)
-  await questionResolve(io, redis, partyId, quizId, question.number, timeLimit)
+  setupAnswerHandling(
+    question,
+    partyId,
+    io,
+    redis,
+    quizId,
+    question.number,
+    eventEmitter
+  )
+  await questionResolve(
+    io,
+    redis,
+    partyId,
+    quizId,
+    question.number,
+    timeLimit,
+    eventEmitter
+  )
 
   const correctAnswerIndex = question.randomised_answers?.findIndex(
     el => el === question.correct_answer
@@ -559,6 +580,7 @@ const setupQuizScoresHash = async (
  * @param questions An array of questions.
  * @param socket The socket used to communicate with the client.
  * @param redis A Redis client.
+ * @param eventEmitter
  */
 export const quiz = async (
   questions: Array<ProcessedQuestion>,
@@ -567,7 +589,8 @@ export const quiz = async (
   redis: Redis,
   io: SocketIoServer,
   quizId: string,
-  questionTimeout: number
+  questionTimeout: number,
+  eventEmitter: EventEmitter
 ): Promise<void> => {
   // Send amount of questions to client
   sendAmountOfQuestions(questions.length, io, partyId)
@@ -585,7 +608,8 @@ export const quiz = async (
       redis,
       io,
       quizId,
-      questionTimeout
+      questionTimeout,
+      eventEmitter
     )
     await postQuestionProcedure(
       io,

@@ -32,19 +32,20 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
     })
 
     const redis: Redis = app.get("redis")
+    const eventEmitter = app.get("eventEmitter")
 
     io.on("connect", (socket: Socket) => {
       // Request the creation of a new party
       socket.on("request-new-party", (userId: string) => {
         const partyId = nanoid(7)
         socket.join(partyId)
-        joinParty(partyId, userId, redis, socket, io)
+        joinParty(partyId, userId, redis, socket, io, eventEmitter)
       })
 
       // Join an already existing party
       socket.on("join-party", async (partyId: string, userId: string) => {
         socket.join(partyId)
-        joinParty(partyId, userId, redis, socket, io)
+        joinParty(partyId, userId, redis, socket, io, eventEmitter)
       })
 
       // Pull questions from Open Trivia DB and send to the client
@@ -56,7 +57,7 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
         const questionTimeout = parseInt(time) * 1000
 
         // Wait for all users to confirm they are ready
-        await allUsersReady(io, redis, partyId)
+        await allUsersReady(io, redis, partyId, eventEmitter)
 
         try {
           // Get questions using the given options
@@ -80,7 +81,8 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
             redis,
             io,
             quizId,
-            questionTimeout
+            questionTimeout,
+            eventEmitter
           )
         } catch (err) {
           emitErrorMessageToSocket(err.message, socket)
