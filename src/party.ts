@@ -26,9 +26,9 @@ const generateDefaultDisplayName = () => {
 
 /**
  * Save a key to redis denoting the party leader.
- * @param userId
- * @param partyId
- * @param redis
+ * @param userId The user being assigned party leader.
+ * @param partyId The party the user is being assigned leader of.
+ * @param redis The Redis client.
  */
 const assignPartyLeader = (userId: string, partyId: string, redis: Redis) => {
   redis.set(`${partyId}:party-leader`, userId)
@@ -40,8 +40,8 @@ const assignPartyLeader = (userId: string, partyId: string, redis: Redis) => {
  * @param partyId The party ID received from the client.
  * @param userId The user ID received from the client.
  * @param redis A Redis client.
- * @param io
- * @param eventEmitter
+ * @param io The Socket.IO server.
+ * @param eventEmitter The Node.js event emitter.
  */
 export const joinParty = async (
   partyId: string,
@@ -75,6 +75,13 @@ export const joinParty = async (
   )
 }
 
+/**
+ * Emit the user their display name.
+ * @param userId The user requesting their display name.
+ * @param partyId The party the user belongs to.
+ * @param socket The user's socket.
+ * @param redis The Redis client.
+ */
 export const sendUserDisplayName = async (
   userId: string,
   partyId: string,
@@ -88,9 +95,9 @@ export const sendUserDisplayName = async (
 /**
  * Assign a display name to a user. Assigns the user's already chosen display if
  * possible.
- * @param userId
- * @param partyId
- * @param redis
+ * @param userId The user being assigned a display name.
+ * @param partyId The party the user belongs to.
+ * @param redis The Redis client.
  */
 export const assignDisplayName = async (
   userId: string,
@@ -108,9 +115,10 @@ export const assignDisplayName = async (
 
 /**
  * Update a user's display name.
- * @param partyId
- * @param redis
- * @param socket
+ * @param userId The user whose display name is being updated.
+ * @param name The new display name.
+ * @param partyId The party the user belongs to.
+ * @param redis The Redis client.
  */
 export const changeDisplayName = async (
   userId: string,
@@ -124,9 +132,9 @@ export const changeDisplayName = async (
 
 /**
  * Send the list of party display names to all clients in the party.
- * @param partyId
- * @param redis
- * @param io
+ * @param partyId The party whose display names are being sent.
+ * @param redis The Redis client.
+ * @param io The Socket.IO server.
  */
 export const sendListOfPartyMembers = async (
   partyId: string,
@@ -148,6 +156,13 @@ export const sendListOfPartyMembers = async (
   io.in(partyId).emit("party-members", members)
 }
 
+/**
+ * Remove a user from a party.
+ * @param userId The user being removed.
+ * @param partyId The party the user is being removed from.
+ * @param redis The Redis client.
+ * @param io The Socket.IO server.
+ */
 export const removePartyMember = async (
   userId: string,
   partyId: string,
@@ -168,6 +183,11 @@ export const removePartyMember = async (
   sendListOfPartyMembers(partyId, redis, io)
 }
 
+/**
+ * Verify whether a party currently exists.
+ * @param partyId The party being checked.
+ * @param redis The Redis client.
+ */
 export const doesPartyExist = async (
   partyId: string,
   redis: Redis
@@ -177,6 +197,12 @@ export const doesPartyExist = async (
   return partyExists
 }
 
+/**
+ * Retrive a user's display name.
+ * @param userId The user whose display name is being retrieved.
+ * @param partyId The party the user belongs to.
+ * @param redis The Redis client.
+ */
 export const getDisplayName = async (
   userId: string,
   partyId: string,

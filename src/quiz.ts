@@ -109,10 +109,14 @@ export const getQuestions = async (
 }
 
 /**
- * Start a timer, and send updates to the client. Returns a promise on timeout.
+ * Start a timer, and send updates to all clients. Resolves a promise on timeout.
  * @param timeout The timeout for the timer.
- * @param socket The socket used to send updates to the client.
+ * @param io The Socket.IO server.
  * @param event The event to emit to the client.
+ * @param partyId The party to emit the event to.
+ * @param quizId The quiz being timed.
+ * @param questionNumber The question number being timed.
+ * @param eventEmitter The Node.js event emitter.
  */
 const timer = (
   timeout: number,
@@ -188,7 +192,7 @@ const updateQuizScore = async (
  * @param io The socket.io server.
  * @param redis A Redis client.
  * @param partyId The party ID.
- * @param eventEmitter
+ * @param eventEmitter The Node.js event emitter.
  */
 export const allUsersReady = async (
   io: SocketIoServer,
@@ -223,6 +227,11 @@ export const allUsersReady = async (
 
 /**
  * Send a question to the client.
+ * @param question The question being sent.
+ * @param partyId The party to send the question to.
+ * @param io The Socket.IO server.
+ * @param timeLimit The time limit for the question.
+ * @param total The total number of questions in this quiz.
  */
 const sendQuestion = (
   question: ProcessedQuestion,
@@ -247,6 +256,10 @@ const sendQuestion = (
 
 /**
  * Emit an event when all clients have sent an answer.
+ * @param redis The Redis client.
+ * @param quizId The quiz we're listening for answers in.
+ * @param questionNumber The current question number.
+ * @param eventEmitter The Node.js event emitter.
  */
 const listenForAllAnswers = (
   redis: Redis,
@@ -272,11 +285,11 @@ const listenForAllAnswers = (
 
 /**
  * Returns a promise that resolves when all clients have provided an answer.
- * @param quizId
- * @param questionNumber
- * @param redis
- * @param io
- * @param eventEmitter
+ * @param quizId The quiz we're waiting for answers in.
+ * @param questionNumber The current question number.
+ * @param redis The Redis client.
+ * @param io The Socket.IO client.
+ * @param eventEmitter The Node.js event emitter.
  */
 const allAnswersReceived = (
   quizId: string,
@@ -304,10 +317,10 @@ const allAnswersReceived = (
 
 /**
  * Record the users who answered this question correctly.
- * @param quizId
- * @param userId
- * @param questionNumber
- * @param redis
+ * @param quizId The quiz being played.
+ * @param userId The user who answered correctly.
+ * @param questionNumber The question number that was answered.
+ * @param redis The Redis client.
  */
 const recordCorrectUser = (
   quizId: string,
@@ -328,6 +341,13 @@ const recordCorrectUser = (
  * Updates the user's score if correct, and emits an event to notify node.js an
  * answer has been received.
  *
+ * @param question The question being answered.
+ * @param partyId The party the user belongs to.
+ * @param io The Socket.IO server.
+ * @param redis The Redis client.
+ * @param quizId The quiz being played.
+ * @param questionNumber The question number being answered.
+ * @param eventEmitter The Node.JS event emitter.
  */
 const setupAnswerHandling = (
   question: ProcessedQuestion,
@@ -373,12 +393,13 @@ const setupAnswerHandling = (
 
 /**
  * Resolve conditions for the current question.
- * @param io
- * @param redis
- * @param partyId
- * @param quizId
- * @param questionNumber
- * @param eventEmitter
+ * @param io The Socket.IO server.
+ * @param redis The Redis client.
+ * @param partyId The party the user belongs to.
+ * @param quizId The quiz being played.
+ * @param questionNumber The question number being answered.
+ * @param timeLimit The time limit for the current question.
+ * @param eventEmitter The Node.js event emitter.
  */
 const questionResolve = async (
   io: SocketIoServer,
@@ -406,8 +427,8 @@ const questionResolve = async (
 /**
  * Send the correct answer's index from the answers array.
  * @param correctAnswerIndex The index of the correct answer in the answers array.
- * @param partyId
- * @param io
+ * @param partyId The party to emit to.
+ * @param io The Socket.IO server.
  */
 const sendCorrectAnswerIndex = (
   correctAnswerIndex: number | undefined,
@@ -417,6 +438,13 @@ const sendCorrectAnswerIndex = (
   io.in(partyId).emit("correct-answer", correctAnswerIndex)
 }
 
+/**
+ * Generate a scorecard for the current quiz.
+ * @param quizId The quiz we want a scoreboard for.
+ * @param partyId The party playing the quiz.
+ * @param redis The Redis client.
+ * @param questionNumber The current question number.
+ */
 const generateScorecard = async (
   quizId: string,
   partyId: string,
@@ -442,6 +470,14 @@ const generateScorecard = async (
   return orderedScorecard
 }
 
+/**
+ * Send a scorecard to all in the party.
+ * @param quizId The quiz being scored.
+ * @param partyId The party requesting the scorecard.
+ * @param redis The Redis client.
+ * @param io The Socket.IO server.
+ * @param questionNumber The current question number in the quiz.
+ */
 const sendScorecard = async (
   quizId: string,
   partyId: string,
@@ -460,10 +496,10 @@ const sendScorecard = async (
 
 /**
  * Steps to complete before the question.
- * @param quizId
- * @param partyId
- * @param redis
- * @param io
+ * @param quizId The quiz being played.
+ * @param partyId The party playing the quiz.
+ * @param redis The Redis client.
+ * @param io The Socket.IO server.
  */
 const preQuestionProcedure = async (
   quizId: string,
@@ -476,14 +512,14 @@ const preQuestionProcedure = async (
 
 /**
  * Run procedure for sending question/handling answer(s).
- * @param question
- * @param partyId
- * @param socket
- * @param redis
- * @param io
- * @param quizId
- * @param eventEmitter
- * @param total
+ * @param question The current question.
+ * @param partyId The party playing the quiz.
+ * @param redis The Redis client.
+ * @param io The Socket.IO server.
+ * @param quizId The quiz being played.
+ * @param timeLimit The time limit for the question.
+ * @param eventEmitter The Node.js event emitter.
+ * @param total The total number of questions.
  */
 const runQuestion = async (
   question: ProcessedQuestion,
@@ -523,9 +559,12 @@ const runQuestion = async (
 
 /**
  * Steps to complete after question completion.
- * @param io
- * @param partyId
- * @param resolve
+ * @param io The Socket.IO server.
+ * @param partyId The party playing the quiz.
+ * @param quizId The quiz being played.
+ * @param questionNumber The current question number.
+ * @param redis The Redis client.
+ * @param questionsLength The total number of questions.
  */
 const postQuestionProcedure = async (
   io: SocketIoServer,
@@ -547,9 +586,9 @@ const postQuestionProcedure = async (
 
 /**
  * Set up a scoreboard for this quiz, initialising all scores to 0.
- * @param quizId
- * @param partyId
- * @param redis
+ * @param quizId The quiz to set up a scoreboard for.
+ * @param partyId The party playing the quiz.
+ * @param redis The Redis client.
  */
 const setupQuizScoresHash = async (
   quizId: string,
@@ -564,9 +603,13 @@ const setupQuizScoresHash = async (
 /**
  * Run the quiz. Returns a promise when all questions have been looped.
  * @param questions An array of questions.
- * @param socket The socket used to communicate with the client.
  * @param redis A Redis client.
- * @param eventEmitter
+ * @param eventEmitter The Node.js event emitter.
+ * @param partyId The party playing this quiz.
+ * @param redis The Redis client.
+ * @param io The Socket.IO server.
+ * @param quizId The quiz being played.
+ * @param questionTimeout The time limit for each question.
  */
 export const quiz = async (
   questions: Array<ProcessedQuestion>,
