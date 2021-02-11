@@ -440,9 +440,7 @@ const generateScorecard = async (
 
   const orderedScorecard = scorecard.sort((a, b) => b.score - a.score)
 
-  return new Promise(resolve => {
-    resolve(orderedScorecard)
-  })
+  return orderedScorecard
 }
 
 const sendScorecard = async (
