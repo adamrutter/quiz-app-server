@@ -77,7 +77,6 @@ export const setupSocketIO = (server: HttpServer, app: Express): void => {
           await quiz(
             questions,
             partyId,
-            socket,
             redis,
             io,
             quizId,

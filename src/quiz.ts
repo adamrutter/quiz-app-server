@@ -227,7 +227,6 @@ export const allUsersReady = async (
 const sendQuestion = (
   question: ProcessedQuestion,
   partyId: string,
-  socket: Socket,
   io: SocketIoServer,
   timeLimit: number,
   total: number
@@ -489,7 +488,6 @@ const preQuestionProcedure = async (
 const runQuestion = async (
   question: ProcessedQuestion,
   partyId: string,
-  socket: Socket,
   redis: Redis,
   io: SocketIoServer,
   quizId: string,
@@ -497,7 +495,7 @@ const runQuestion = async (
   eventEmitter: EventEmitter,
   total: number
 ) => {
-  sendQuestion(question, partyId, socket, io, timeLimit, total)
+  sendQuestion(question, partyId, io, timeLimit, total)
   setupAnswerHandling(
     question,
     partyId,
@@ -573,7 +571,6 @@ const setupQuizScoresHash = async (
 export const quiz = async (
   questions: Array<ProcessedQuestion>,
   partyId: string,
-  socket: Socket,
   redis: Redis,
   io: SocketIoServer,
   quizId: string,
@@ -589,7 +586,6 @@ export const quiz = async (
     await runQuestion(
       question,
       partyId,
-      socket,
       redis,
       io,
       quizId,
